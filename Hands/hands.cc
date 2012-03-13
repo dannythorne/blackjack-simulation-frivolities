@@ -4,12 +4,16 @@ using namespace std;
 
 const int N_CARD_TYPES = 10; // Number of card types: |{ 10, A, 2-9}| = 10
 
+void deal( int* hand, int* shoe, int num_cards);
+
 int main()
 {
   cout << "Hello!" << endl;
 
   int num_decks = 6;
   int shoe[N_CARD_TYPES];
+
+  int hand[21];
 
   int i;
 
@@ -25,6 +29,16 @@ int main()
     cout << "  Card type " << i << " occurs " << shoe[i] << " times." << endl;
   }
 
+  deal( hand, shoe, 0);
+
+  cout << "Test deal card: " << hand[0] << endl;
+
   cout << "Good bye!" << endl;
   return 0;
 }
+
+void deal( int* hand, int* shoe, int num_cards)
+{
+  hand[num_cards] = 5;
+}
+
