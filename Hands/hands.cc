@@ -4,6 +4,8 @@ using namespace std;
 
 const int N_CARD_TYPES = 10; // Number of card types: |{ 10, A, 2-9}| = 10
 
+const int g_limit_num_cards_per_hand = 0;
+
 void deal( int* hand, int* shoe, int num_cards);
 int value_of( int* hand, int num_cards);
 void show( int* hand, int num_cards);
@@ -12,7 +14,7 @@ int main()
 {
   cout << "Hello!" << endl;
 
-  int num_decks = 6;
+  int num_decks = 2;
   int shoe[N_CARD_TYPES];
 
   int hand[21 + 1];
@@ -39,26 +41,34 @@ int main()
 
 void deal( int* hand, int* shoe, int num_cards)
 {
-//if( num_cards>2)
-//{
-//  hand[21] = value_of( hand, num_cards);
-//  show( hand, num_cards);
-//  return;
-//}
+  if( g_limit_num_cards_per_hand)
+  {
+    if( num_cards>=g_limit_num_cards_per_hand)
+    {
+      hand[21] = value_of( hand, num_cards);
+      show( hand, num_cards);
+      return;
+    }
+  }
 
   int i;
-  for( i=0; i<10; i++)
+  for( i=0; i<N_CARD_TYPES; i++)
   {
-    hand[num_cards] = i;
+    if( shoe[i] > 0)
+    {
+      hand[num_cards] = i;
+      shoe[i]--;
 
-    hand[21] = value_of( hand, num_cards+1);
-    if( hand[21] < 17) // (just stand on soft 17 for now)
-    {
-      deal( hand, shoe, num_cards+1);
-    }
-    else
-    {
-      show( hand, num_cards+1);
+      hand[21] = value_of( hand, num_cards+1);
+      if( hand[21] < 17) // (just stand on soft 17 for now)
+      {
+        deal( hand, shoe, num_cards+1);
+      }
+      else
+      {
+        show( hand, num_cards+1);
+      }
+      shoe[i]++;
     }
   }
 }
