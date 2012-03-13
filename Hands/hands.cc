@@ -15,7 +15,7 @@ int main()
   int num_decks = 6;
   int shoe[N_CARD_TYPES];
 
-  int hand[21];
+  int hand[21 + 1];
 
   int i;
 
@@ -33,39 +33,66 @@ int main()
 
   deal( hand, shoe, 0);
 
-  cout << "Test deal card: " << hand[0] << endl;
-
   cout << "Good bye!" << endl;
   return 0;
 }
 
 void deal( int* hand, int* shoe, int num_cards)
 {
-  if( num_cards>2) // temporary until value_of is implemented
-  {
-    show( hand, num_cards);
-    return;
-  }
+//if( num_cards>2)
+//{
+//  hand[21] = value_of( hand, num_cards);
+//  show( hand, num_cards);
+//  return;
+//}
 
   int i;
   for( i=0; i<10; i++)
   {
     hand[num_cards] = i;
 
-    if( value_of( hand, num_cards) < 17) // (just stand on soft 17 for now)
+    hand[21] = value_of( hand, num_cards+1);
+    if( hand[21] < 17) // (just stand on soft 17 for now)
     {
       deal( hand, shoe, num_cards+1);
     }
     else
     {
-      show( hand, num_cards);
+      show( hand, num_cards+1);
     }
   }
 }
 
 int value_of( int* hand, int num_cards)
 {
-  return 1;
+  int val = 0;
+  int num_aces = 0;
+  int i;
+
+  for( i=0; i<num_cards; i++)
+  {
+    if( hand[i] == 0)
+    {
+      val += 10;
+    }
+    else if( hand[i] != 1)
+    {
+      val += hand[i];
+    }
+    else
+    {
+      val += 11;
+      num_aces++;
+    }
+  }
+
+  while( val > 21 && num_aces>0)
+  {
+    val -= 10;
+    num_aces--;
+  }
+
+  return val;
 }
 
 void show( int* hand, int num_cards)
@@ -76,5 +103,11 @@ void show( int* hand, int num_cards)
   {
     cout << " " << hand[i];
   }
-  cout << "]" << endl;
+  cout << "] ";
+  cout << hand[21];
+  if( hand[21] > 21)
+  {
+    cout << " (Bust)";
+  }
+  cout << endl;
 }
