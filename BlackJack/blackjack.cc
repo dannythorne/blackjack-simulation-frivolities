@@ -281,7 +281,7 @@ Player::Player( const Rules& rules)
   m_handSoft = false;
   m_wonLastHand = true;
   m_pushLastHand = false;
-  m_initialWager = 1;
+  m_initialWager = 5;
   m_currentWager = m_initialWager;
   m_initialBankRoll = 200;
   m_bankRoll = m_initialBankRoll;
@@ -387,7 +387,10 @@ float Player::bets()
     {
       m_currentWager*=2;
       //m_currentWager++;
-      if( m_currentWager > m_bankRoll && m_bankRoll > 0) { m_currentWager=m_bankRoll;}
+      if( m_currentWager > m_bankRoll && m_bankRoll > 0)
+      {
+        m_currentWager = m_bankRoll;
+      }
       //if( m_currentWager > m_bankRoll) { m_currentWager=1;}
       //if( m_currentWager > m_bankRoll) { m_currentWager=m_bankRoll/2.0;}
     }
@@ -1022,6 +1025,19 @@ void Table::display( ostream& o) const
       << endl;
     if( true)
     {
+      o
+/*1*/   << "% 1 " << "peakHandHistogram"
+/*2*/   << "% 2 " << "peakBankHistogram"
+/*3*/   << "% 3 " << "sumBankRollPerHand"
+/*4*/   << "% 4 " << "handOrdinalCounts"
+/*5*/   << "% 5 " << "countLosingStreaks"
+/*6*/   << "% 6 " << "countBankRollUp"
+/*7*/   << "% 7 " << "countBankRollDown"
+/*8*/   << "% 8 " << "countLosingStreaksOfGivenLength"
+        << ";"
+        << endl;
+
+      o << "x = [" << endl;
       int i;
       for( i=0; i<m_player->maxNumHandsToRecord(); i++)
       {
@@ -1037,6 +1053,9 @@ void Table::display( ostream& o) const
           << ";"
           << endl;
       }
+      o << "];" << endl;
+      o << "plot(x(:,6)./x(:,4)); % ratio of wins w.r.t. number of hands played"
+        << endl;
     }
   }
   else

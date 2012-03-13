@@ -22,10 +22,10 @@ int main()
   if(  x.displayShoe()) { x.toggle_displayShoe();}
   cout << x << endl;
 
-  int numHandsAtATime = 100000000;
+  int numHandsAtATime = 1e8; //1e9;
 
   int i;
-  for( i=0; i<10; i++)
+  for( i=0; i<1; i++)
   {
     x.play(/*numHands*/numHandsAtATime);
     cout << endl;

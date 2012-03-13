@@ -14,6 +14,15 @@ pushed_on = 85059132; % hands.
 % Average peak hand     : 1114.48 hands.
 % Average bank roll peak: $791.221
 
+% 1 peakHandHistogram
+% 2 peakBankHistogram
+% 3 sumBankRollPerHand
+% 4 handOrdinalCounts
+% 5 countLosingStreaks
+% 6 countBankRollUp
+% 7 countBankRollDown
+% 8 countLosingStreaksOfGivenLength;
+
 x = [
   8960  1794719 1.65975e+08 830202 205227715 359581 399373;
   2652  534386 1.66106e+08 830203 108058386 408279 260976;
