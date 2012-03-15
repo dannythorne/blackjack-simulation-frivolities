@@ -101,8 +101,8 @@ int main()
   double wagerIncFactor=2.0;
 
 //int maxAllowableWager = -1;
-  int maxAllowableWager = 128;
-//int maxAllowableWager = (int)pow(2.,30.);
+//int maxAllowableWager = 128;
+  int maxAllowableWager = (int)pow(2.,30.);
 //int maxAllowableWager = pow(wagerIncFactor,7);
 
   double* winnings;
@@ -119,8 +119,8 @@ int main()
   bool dealerBlackJack = false;
   bool playerBlackJack = false;
 
-  bool betByCount = false;
-  bool betMartingale = true;
+  bool betByCount = true;
+  bool betMartingale = false;
   if( betByCount && betMartingale)
   {
     cout << "ERROR: Conflicting betting strategies betByCount and ";
@@ -159,7 +159,7 @@ int main()
     {
       wager = count[card];
 
-#if 0
+#if 1
            if( wager < 5) { wager =  1;}
       else if( wager < 12) { wager =  5;}
       else                 { wager=10;}
@@ -167,8 +167,7 @@ int main()
 #if 0
       if( wager < 1) { wager =  1;}
 #endif
-
-#if 1
+#if 0
            if( wager < 10) { wager =  0;}
       else if( wager < 17) { wager =  0;}
       else                 { wager*=10;}
