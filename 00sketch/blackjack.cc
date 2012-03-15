@@ -18,9 +18,29 @@ int main()
   cout << __FILE__ << " " << __LINE__ << " -- main(), Hello!" << endl;
   cout << endl;
 
-  srand( time(NULL));
+  time_t seed = 0;
+
+  if( /*random seed*/ true)
+  {
+    seed = time(NULL);
+    ofstream seedout;
+    seedout.open("seeds.txt",ios::app);
+    seedout << seed << endl;
+    seedout.close();
+  }
+  else
+  {
+    // seed = 1331750333; // 1331750333 -- Long losing streak
+    seed = 1331753499; // 1331753499 -- Two cropped losses
+
+  }
+
+  srand( seed);
 
   bool showHands = false;
+  bool showWinnings = false;
+  bool cropMajorLossesFromView = false;
+  bool shadeHighCountRegions = false;
 
   int numCardsPerSuit = 13;
   int numSuits = 4;
@@ -57,11 +77,11 @@ int main()
   for( i=0; i<numCards; i++)
   {
     count[i+1] = count[i]
-               + ( decks[i]>0 && decks[i]<7)
-               - ( decks[i]>9);
+               + ( decks[i]>0 && decks[i]<6)
+               - ( decks[i]>8 || decks[i]==0);
   }
 
-  int maxHands = 10000;
+  int numHands = 1e5;
   int hand = 0;
   int card = 0;
   int reshuffleThresh = (int)floor(0.70*numCards);
@@ -77,28 +97,45 @@ int main()
   int maxLosingStreak = 0;
   double wager = 1;
   int maxWager = 1;
+
   double wagerIncFactor=2.0;
-  //unsigned int maxAllowableWager = -1;
-  unsigned int maxAllowableWager = 128;
-  //unsigned int maxAllowableWager = pow(wagerIncFactor,7);
+
+//int maxAllowableWager = -1;
+//int maxAllowableWager = 128;
+  int maxAllowableWager = (int)pow(2.,30.);
+//int maxAllowableWager = pow(wagerIncFactor,7);
+
   double* winnings;
-  winnings = new double[maxHands+1];
+  winnings = new double[numHands+1];
   winnings[0] = 0.0;
   double minWinnings = 0;
   double maxWinnings = 0;
+
+  int* counts;
+  counts = new int[numHands+1];
+
   int numPlayerBlackJacks = 0;
   int numDealerBlackJacks = 0;
   bool dealerBlackJack = false;
   bool playerBlackJack = false;
-  bool betByCount = true;
+
+  bool betByCount = false;
+  bool betMartingale = true;
+  if( betByCount && betMartingale)
+  {
+    cout << "ERROR: Conflicting betting strategies betByCount and ";
+    cout <<        "betMartingale. Turning off betByCount." << endl;
+    betByCount = false;
+  }
+
   bool allowDouble = true;
   bool allowSplit = false;
   bool doubleDown = false;
 
-  while( hand < maxHands)
-  {
-    if( wager > maxWager) { maxWager = wager;}
+  cout << "maxhands: " << numHands << endl;
 
+  while( hand < numHands)
+  {
     if( losing > maxLosingStreak) { maxLosingStreak = losing;}
 
     if( showHands) { cout << string(80,'=') << endl;}
@@ -114,7 +151,45 @@ int main()
 
     doubleDown = false;
 
-    // First two cards to player and dealer.
+    counts[hand] = count[card];
+
+    if( betByCount)
+    {
+      wager = count[card];
+
+#if 0
+           if( wager < 5) { wager =  1;}
+      else if( wager < 12) { wager =  5;}
+      else                 { wager=10;}
+#endif
+#if 0
+      if( wager < 1) { wager =  1;}
+#endif
+
+#if 1
+           if( wager < 10) { wager =  0;}
+      else if( wager < 17) { wager =  0;}
+      else                 { wager*=10;}
+#endif
+#if 0
+      // This one makes a winnings graph that looks like a city scape.
+           if( wager <  1) { wager =  0;}
+      else if( wager < 17) { wager =  1;}
+      else                 { wager*=10;}
+#endif
+    }
+
+    if( wager > maxAllowableWager)
+    {
+      wager = 1;
+      losing = 0;
+      cout << "Cutting losses at hand " << hand << ". "
+           << "(Wager exceeded $" << maxAllowableWager << ".)" << endl;
+    }
+
+    if( wager > maxWager) { maxWager = wager;}
+
+    // Deal first two cards to player and dealer.
     handPlayer[numCardsPlayer++] = decks[card++];
     handDealer[numCardsDealer++] = decks[card++];
     handPlayer[numCardsPlayer++] = decks[card++];
@@ -160,6 +235,13 @@ int main()
     {
       dealerBlackJack = true;
       numDealerBlackJacks++;
+      if( playerBlackJack)
+      {
+        // Don't count player's hand as a blackjack when it is pushed against a
+        // dealer blackjack.
+        playerBlackJack = false;
+        numPlayerBlackJacks--;
+      }
     }
     else
     {
@@ -211,7 +293,7 @@ int main()
       else if( handDealerValue <=21 && handDealerValue > handPlayerValue)
       {
         winnings[hand+1] = winnings[hand] - wager;
-        wager*=wagerIncFactor;
+        if( betMartingale) { wager*=wagerIncFactor;}
         losing++;
       }
       else if( handDealerValue <=21)
@@ -228,24 +310,30 @@ int main()
     else
     {
       winnings[hand+1] = winnings[hand] - wager;
-      wager*=wagerIncFactor;
+      if( betMartingale) { wager*=wagerIncFactor;}
       losing++;
     }
 
     hand++;
 
-    if( losing == 0) { wager = 1;}
+    if( betMartingale && losing == 0) { wager = 1;}
 
-    cout << hand << " $" << winnings[hand] << endl;
+    if( showWinnings)
+    {
+      cout << hand << " $" << winnings[hand] << endl;
+    }
 
     // Reshuffle when necessary.
     if( card>reshuffleThresh)
     {
+      if( showHands)
+      {
       cout << " -- Reshuffling after card " << card << ". ("
            << card << "/"
            << numCards << "="
            << (double)card/(double)numCards
            << ")" << endl;
+      }
       for( i=0; i<numCards*numCards; i++)
       {
         j = (int)floor(numCards*(rand()/(double)RAND_MAX));
@@ -257,34 +345,18 @@ int main()
       for( i=0; i<numCards; i++)
       {
         count[i+1] = count[i]
-                   + ( decks[i]>0 && decks[i]<7)
-                   - ( decks[i]>9);
+                   + ( decks[i]>0 && decks[i]<6)
+                   - ( decks[i]>8 || decks[i]==0);
       }
 
       card = 0;
-      //wager = 1;
-    }
-    else
-    {
-      if( betByCount)
-      {
-        wager = count[card];
-        if( wager < 10) { wager = 1;}
-      }
+      if( betByCount) { wager = 1;}
     }
 
     if( winnings[hand] > maxWinnings) { maxWinnings = winnings[hand];}
     if( winnings[hand] < minWinnings) { minWinnings = winnings[hand];}
 
-    if( wager > maxAllowableWager)
-    {
-      wager = 1;
-      losing = 0;
-      cout << "Cutting losses at hand " << hand << ". "
-           << "(Wager exceeded $" << maxAllowableWager << ".)" << endl;
-    }
-
-  } // while( hand < maxHands)
+  } // while( hand < numHands)
 
   cout << endl;
   cout << endl;
@@ -296,11 +368,119 @@ int main()
   cout << "wagerIncFactor   : " << wagerIncFactor    << endl;
 
   ofstream fout;
-  fout.open("winnings.txt");
-  for( i=0; i<=maxHands; i++)
+  fout.open("winnings.m");
+  cout << endl;
+  cout << "Writing results to \"winnings.m\"." << endl;
+
+  fout << "numHands          = " << numHands          << endl;
+  fout << "minWinnings       = " << minWinnings       << endl;
+  fout << "maxWinnings       = " << maxWinnings       << endl;
+  fout << "maxWager          = " << maxWager          << endl;
+  fout << "maxLosingStreak   = " << maxLosingStreak   << endl;
+  fout << "maxAllowableWager = " << maxAllowableWager << endl;
+  fout << "wagerIncFactor    = " << wagerIncFactor    << endl;
+  fout << "x = [" << endl;
+  for( i=0; i<=numHands; i++)
   {
     fout << winnings[i] << endl;
   }
+  fout << "];" << endl;
+  fout << "k = [" << endl;
+  for( i=0; i<=numHands; i++)
+  {
+    fout << counts[i] << endl;
+  }
+  fout << "];" << endl;
+  fout << "plot(x);" << endl;
+  fout << "xlabel('hands');" << endl;
+  fout << "ylabel('winnings');" << endl;
+
+  fout << "kmin = min(k);" << endl;
+  fout << "kmax = max(k);" << endl;
+
+  if( shadeHighCountRegions)
+  {
+    fout << "hold on;" << endl;
+    fout << "for i=1:numHands" << endl;
+    fout << "  hnd=line( i*[1 1], [ 0 x(i)]);" << endl;
+    fout << "  set(hnd,'color', ((k(i)-kmin)/(kmax-kmin))*[ 1 0.0 0.0] + ((kmax-k(i))/(kmax-kmin))*[ 0.0 0.0 1]);" << endl;
+    fout << "end" << endl;
+    fout << "hnd=plot(x);" << endl;
+    fout << "set(hnd,'color',[0 0 0]);" << endl;
+    fout << "set(hnd,'linewidth',1.5);" << endl;
+    fout << "hold off;" << endl;
+  }
+
+  if( cropMajorLossesFromView)
+  {
+    fout << "ymin = max(-maxWinnings,minWinnings);" << endl;
+  }
+  else
+  {
+    fout << "ymin = minWinnings;" << endl;
+  }
+
+  fout << "yrange = maxWinnings - ymin;" << endl;
+  fout << "axis([ 0-0.05*numHands ";
+  fout <<        "1.05*numHands ";
+  fout <<        "ymin-0.05*yrange ";
+  fout <<        "maxWinnings+0.05*yrange]);" << endl;
+
+  fout << "xlim = get(gca,'xlim');" << endl;
+  fout << "ylim = get(gca,'ylim');" << endl;
+
+  fout << "if( ylim(1) > minWinnings)" << endl;
+  fout << "  xmin = find(x<ylim(1));" << endl;
+  fout << "  hold on;" << endl;
+  fout << "  plot( xmin, ylim(1)*ones(size(xmin)), 'r*');" << endl;
+  fout << "  hold off;" << endl;
+  fout << "end" << endl;
+
+  fout << "dx = (xlim(2)-xlim(1))/40;" << endl;
+  fout << "dy = (ylim(2)-ylim(1))/30;" << endl;
+  fout << "x0 = dx;" << endl;
+
+  fout << "y0 = ylim(2)-dy;" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('numHands = %d',numHands)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('minWinnings = %3.2e',minWinnings)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('maxWinnings = %3.2e',maxWinnings)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('maxWager = %d',maxWager)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('maxLosingStreak = %d',maxLosingStreak)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('maxAllowableWager = %d',maxAllowableWager)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('wagerIncFactor = %3.2f',wagerIncFactor)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('maxCount = %d',kmax)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "hnd=text(x0,y0,sprintf('minCount = %d',kmin)); y0 = y0 - dy;" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
+  fout << "" << endl;
   fout.close();
 
   delete [] winnings;
@@ -327,11 +507,11 @@ void displayHand( const char* label, int* hand, int n)
     switch( hand[i])
     {
       case  0: cout << " A"; break;
-      case 10: cout << " 0"; break;
-      case 11: cout << " J"; break;
-      case 12: cout << " Q"; break;
-      case 13: cout << " K"; break;
-      default: cout << " " << hand[i];
+      case  9: cout << " 0"; break;
+      case 10: cout << " J"; break;
+      case 11: cout << " Q"; break;
+      case 12: cout << " K"; break;
+      default: cout << " " << hand[i]+1;
     }
   }
   cout << "]";
@@ -366,8 +546,8 @@ int computeHandValue( int* hand, int n, int& numAces)
     if( hand[i]==0) { numAces++; val+=11;}
     else
     {
-      if( hand[i]>9) { val+=10;}
-      else { val+=hand[i];}
+      if( hand[i]>8) { val+=10;}
+      else { val+=(hand[i]+1);}
     }
     i++;
   }
@@ -402,9 +582,9 @@ bool playerShouldHit(
     && (
          handValue < 12
       ||
-         ( handValue > 12 && ( dealerCard > 6 || !dealerCard))
+         ( handValue > 12 && ( dealerCard > 5 || !dealerCard))
       ||
-         ( handValue==12 && ( dealerCard > 6 || dealerCard < 4 ))
+         ( handValue==12 && ( dealerCard > 5 || dealerCard < 3 ))
        )
     )
   {
@@ -422,7 +602,7 @@ bool playerShouldHit(
 
 bool playerShouldDouble( int* hand, int n, int dealerCard)
 {
-  if( ( dealerCard > 2 || dealerCard < 7))
+  if( ( dealerCard > 1 || dealerCard < 6))
   {
     int numAces;
     int handValue = computeHandValue( hand, n, numAces);

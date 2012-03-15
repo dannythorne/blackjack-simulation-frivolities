@@ -32,7 +32,7 @@ int main()
   float ave_winnings;
   float ave_positive;
 
-  int n = 1e3;
+  int n = 8e4;
 
   int i;
 
@@ -75,7 +75,7 @@ int main()
   }
 
   cout << "];" << endl;
-  cout << "figure; plot(x(:,end)); "
+  cout << "plot(x(:,end)); "
        << "axis([ 0 " << btrial.num_trials << " 0 1]);" << endl;
 
   return 0;
@@ -83,9 +83,9 @@ int main()
 
 void init( BTrial& btrial)
 {
-  btrial.p = 0.49;
+  btrial.p = 0.48;
   btrial.pbing = 0.04;
-  btrial.max_trials = 1e3;
+  btrial.max_trials = 1e2;
   btrial.base_wager = 1;
   btrial.max_wager = 128;
 }

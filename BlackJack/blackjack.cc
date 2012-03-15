@@ -290,8 +290,10 @@ Player::Player( const Rules& rules)
   m_numPushes = 0;
   m_numBlackjacks = 0;
 
-  m_numHandsToBreakBank = 0;
-  m_minHandsToBreakBank = 999999;
+  m_maxNumHandsToRecord = 128;//*16;//*128;
+
+  m_curHand = 0;
+  m_minHandsToBreakBank = m_maxNumHandsToRecord;
   m_maxHandsToBreakBank = 0;
   m_numBankBreaks = 0;
   m_maxBankRoll = m_initialBankRoll;
@@ -300,7 +302,6 @@ Player::Player( const Rules& rules)
   m_sumPeakHands = 0;
   m_lengthLosingStreak = 0;
 
-  m_maxNumHandsToRecord = 128*128;
   m_peakHandHistogram = new int[m_maxNumHandsToRecord];
   m_peakBankHistogram = new int[m_maxNumHandsToRecord];
   m_sumBankRollPerHand = new float[m_maxNumHandsToRecord];
@@ -417,7 +418,11 @@ float Player::bets()
     }
   }
 
+#if 0
   if( m_currentWager > m_bankRoll)
+#else
+  if( m_curHand > m_maxNumHandsToRecord || m_currentWager > m_bankRoll)
+#endif
   {
     //cout << __FILE__ << " " << __LINE__ << " "
     //     << "wager ($" << m_currentWager
@@ -425,15 +430,15 @@ float Player::bets()
     //     << ")"
     //     << endl;
     m_numBankBreaks++;
-    if( m_numHandsToBreakBank < m_minHandsToBreakBank)
+    if( m_curHand < m_minHandsToBreakBank)
     {
-      m_minHandsToBreakBank = m_numHandsToBreakBank;
+      m_minHandsToBreakBank = m_curHand;
     }
-    if( m_numHandsToBreakBank > m_maxHandsToBreakBank)
+    if( m_curHand > m_maxHandsToBreakBank)
     {
-      m_maxHandsToBreakBank = m_numHandsToBreakBank;
+      m_maxHandsToBreakBank = m_curHand;
     }
-    m_numHandsToBreakBank = 0;
+    m_curHand = 0;
     m_currentWager = m_initialWager;
     m_bankRoll = m_initialBankRoll;
     m_sumBankRollPeaks += m_maxBankRoll;
@@ -447,9 +452,13 @@ float Player::bets()
     m_maxBankRoll = m_initialBankRoll;
     m_peakHand = 0;
   }
+#if 0
   else
+#else
+  else if( !m_pushLastHand)
+#endif
   {
-    m_numHandsToBreakBank++;
+    m_curHand++;
   }
 
   return m_currentWager;
@@ -478,7 +487,7 @@ bool Player::blackjack()
 void Player::push()
 {
   m_pushLastHand = true;
-  if( m_numHandsToBreakBank < m_maxNumHandsToRecord)
+  if( m_curHand < m_maxNumHandsToRecord)
   {
     if( m_bankRoll < 0)
     {
@@ -487,15 +496,19 @@ void Player::push()
            << endl;
       exit(1);
     }
-    m_sumBankRollPerHand[m_numHandsToBreakBank] += m_bankRoll;
-    m_handOrdinalCounts[m_numHandsToBreakBank]++;
-    if( m_bankRoll > m_initialBankRoll)
+
+    if( /*accumulate stats on pushed hands*/false)
     {
-      m_countBankRollUp[m_numHandsToBreakBank]++;
-    }
-    else if( m_bankRoll < m_initialBankRoll)
-    {
-      m_countBankRollDown[m_numHandsToBreakBank]++;
+      m_sumBankRollPerHand[m_curHand] += m_bankRoll;
+      m_handOrdinalCounts[m_curHand]++;
+      if( m_bankRoll > m_initialBankRoll)
+      {
+        m_countBankRollUp[m_curHand]++;
+      }
+      else if( m_bankRoll < m_initialBankRoll)
+      {
+        m_countBankRollDown[m_curHand]++;
+      }
     }
   }
   m_numPushes++;
@@ -504,7 +517,7 @@ void Player::push()
 void Player::loses( float wager)
 {
   m_bankRoll -= wager;
-  if( m_numHandsToBreakBank < m_maxNumHandsToRecord)
+  if( m_curHand < m_maxNumHandsToRecord)
   {
     if( m_bankRoll < 0)
     {
@@ -513,15 +526,15 @@ void Player::loses( float wager)
            << endl;
       exit(1);
     }
-    m_sumBankRollPerHand[m_numHandsToBreakBank] += m_bankRoll;
-    m_handOrdinalCounts[m_numHandsToBreakBank]++;
+    m_sumBankRollPerHand[m_curHand] += m_bankRoll;
+    m_handOrdinalCounts[m_curHand]++;
     if( m_bankRoll > m_initialBankRoll)
     {
-      m_countBankRollUp[m_numHandsToBreakBank]++;
+      m_countBankRollUp[m_curHand]++;
     }
     else if( m_bankRoll < m_initialBankRoll)
     {
-      m_countBankRollDown[m_numHandsToBreakBank]++;
+      m_countBankRollDown[m_curHand]++;
     }
   }
   m_wonLastHand = false;
@@ -533,7 +546,7 @@ void Player::loses( float wager)
 void Player::wins( float payout)
 {
   m_bankRoll += payout;
-  if( m_numHandsToBreakBank < m_maxNumHandsToRecord)
+  if( m_curHand < m_maxNumHandsToRecord)
   {
     if( m_bankRoll < 0)
     {
@@ -542,25 +555,25 @@ void Player::wins( float payout)
            << endl;
       exit(1);
     }
-    m_sumBankRollPerHand[m_numHandsToBreakBank] += m_bankRoll;
-    m_handOrdinalCounts[m_numHandsToBreakBank]++;
+    m_sumBankRollPerHand[m_curHand] += m_bankRoll;
+    m_handOrdinalCounts[m_curHand]++;
     if( m_bankRoll > m_initialBankRoll)
     {
-      m_countBankRollUp[m_numHandsToBreakBank]++;
+      m_countBankRollUp[m_curHand]++;
     }
     else if( m_bankRoll < m_initialBankRoll)
     {
-      m_countBankRollDown[m_numHandsToBreakBank]++;
+      m_countBankRollDown[m_curHand]++;
     }
     if(m_lengthLosingStreak == m_lengthLosingStreakToTrack)
     {
-      m_countLosingStreaksOfGivenLength[m_numHandsToBreakBank]++;
+      m_countLosingStreaksOfGivenLength[m_curHand]++;
     }
   }
   if( m_bankRoll > m_maxBankRoll)
   {
     m_maxBankRoll = m_bankRoll;
-    m_peakHand = m_numHandsToBreakBank;
+    m_peakHand = m_curHand;
   }
   m_countLosingStreaks[m_lengthLosingStreak]++;
   m_lengthLosingStreak = 0;
@@ -987,63 +1000,62 @@ void Table::play( const int numHands)
 
 void Table::display( ostream& o) const
 {
-  o << "Results:" << endl;
-  o << "  Player won " << m_player->numWins() << " hands"
+  o << "% Results:" << endl;
+  o << "%  Player won " << m_player->numWins() << " hands"
     << " (" << m_player->numBlackjacks() << " blackjacks)." << endl;
-  o << "  Player lost " << m_player->numLosses() << " hands." << endl;
-  o << "  Pushed on " << m_player->numPushes() << " hands." << endl;
+  o << "%  Player lost " << m_player->numLosses() << " hands." << endl;
+  o << "%  Pushed on " << m_player->numPushes() << " hands." << endl;
   o << endl;
   float totalHands = m_player->numWins()
                    + m_player->numLosses()
                    + m_player->numPushes();
   if( totalHands > 0)
   {
-    o << "  Ratio wins  : " << m_player->numWins()/totalHands << endl;
-    o << "  Ratio losses: " << m_player->numLosses()/totalHands << endl;
-    o << "  Ratio pushes: " << m_player->numPushes()/totalHands << endl;
-    o << "  Ratio blackjacks: " << m_player->numBlackjacks()/totalHands << endl;
+    o << "%  Ratio wins  : " << m_player->numWins()/totalHands << endl;
+    o << "%  Ratio losses: " << m_player->numLosses()/totalHands << endl;
+    o << "%  Ratio pushes: " << m_player->numPushes()/totalHands << endl;
+    o << "%  Ratio blackjacks: " << m_player->numBlackjacks()/totalHands << endl;
     o << endl;
-    o << "  Average run before going broke: "
+    o << "%  Average run before going broke: "
       << (float)totalHands/m_player->numBankBreaks()
       << " hands."
       << endl;
-    o << "  Minimum run before going broke: "
+    o << "%  Minimum run before going broke: "
       << m_player->minHandsToBreakBank()
       << " hands."
       << endl;
-    o << "  Maximum run before going broke: "
+    o << "%  Maximum run before going broke: "
       << m_player->maxHandsToBreakBank()
       << " hands."
       << endl;
     o << endl;
-    o << "  Average peak hand     : "
+    o << "%  Average peak hand     : "
       << m_player->sumPeakHands()/m_player->numBankBreaks()
       << " hands."
       << endl;
-    o << "  Average bank roll peak: $"
+    o << "%  Average bank roll peak: $"
       << m_player->sumBankRollPeaks() / m_player->numBankBreaks()
       << endl;
     if( true)
     {
-      o
-/*1*/   << "% 1 " << "peakHandHistogram"
-/*2*/   << "% 2 " << "peakBankHistogram"
-/*3*/   << "% 3 " << "sumBankRollPerHand"
-/*4*/   << "% 4 " << "handOrdinalCounts"
-/*5*/   << "% 5 " << "countLosingStreaks"
-/*6*/   << "% 6 " << "countBankRollUp"
-/*7*/   << "% 7 " << "countBankRollDown"
-/*8*/   << "% 8 " << "countLosingStreaksOfGivenLength"
-        << ";"
+      o << endl
+/*1*/   << "% 1 " << "peakHandHistogram" << endl
+/*2*/   << "% 2 " << "peakBankHistogram" << endl
+/*3*/   << "% 3 " << "sumBankRollPerHand" << endl
+/*4*/   << "% 4 " << "handOrdinalCounts" << endl
+/*5*/   << "% 5 " << "countLosingStreaks" << endl
+/*6*/   << "% 6 " << "countBankRollUp" << endl
+/*7*/   << "% 7 " << "countBankRollDown" << endl
+/*8*/   << "% 8 " << "countLosingStreaksOfGivenLength" << endl
         << endl;
 
       o << "x = [" << endl;
       int i;
       for( i=0; i<m_player->maxNumHandsToRecord(); i++)
       {
-        o << setw(6) << i
-/*1*/     << ": " << m_player->peakHandHistogram(i)
-/*2*/     << "  " << m_player->peakBankHistogram(i)
+        o //<< setw(6) << i << ":"
+/*1*/     << " " << m_player->peakHandHistogram(i)
+/*2*/     << " " << m_player->peakBankHistogram(i)
 /*3*/     << " " << m_player->sumBankRollPerHand(i)
 /*4*/     << " " << m_player->handOrdinalCounts(i)
 /*5*/     << " " << m_player->countLosingStreaks(i)
@@ -1060,8 +1072,8 @@ void Table::display( ostream& o) const
   }
   else
   {
-    o << "Initial bank roll: $" << m_player->initialBankRoll() << endl;
-    o << "Initial wager: $" << m_player->initialWager() << endl;
+    o << "% Initial bank roll: $" << m_player->initialBankRoll() << endl;
+    o << "% Initial wager: $" << m_player->initialWager() << endl;
   }
 }
 

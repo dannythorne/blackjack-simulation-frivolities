@@ -14,8 +14,11 @@ if track_winnings
   ratio_wins = zeros(nmax,1);
 end
 
-pwin = 0.424249 / (0.424249 + 0.490964);
-ploss = 0.490964 / (0.424249 + 0.490964);
+pwin_raw = 0.433322; % 0.424249;
+ploss_raw = 0.481628; % 0.490964;
+
+pwin = pwin_raw / ( pwin_raw + ploss_raw);
+ploss = ploss_raw / ( pwin_raw + ploss_raw);
 
 if track_losing_streaks
   ratio_losing_streaks = zeros(nmax,max_length_of_losing_streak);
@@ -28,8 +31,10 @@ tic
 t = 0;
 
 for n=1:nmax
-  m = 2^n;
-  psum = 0;
+
+  m = 2^n; % number of hands to play
+
+  %psum = 0;
   if track_losing_streaks
     ratio_losing_streaks(n,1) = n;
     if track_even_odds_for_comparison
@@ -37,7 +42,6 @@ for n=1:nmax
     end
   end
   if track_winnings
-    winnings_sum = 0;
     num_wins = 0;
     positive_winnings_sum = 0;
   end
@@ -119,26 +123,34 @@ for n=1:nmax
 
       %s = sprintf('%d %s',d,s);
       k = floor(k/2);
+
     end % for j
 
     %disp(sprintf('%s %f',s,p));
-    psum = psum + p;
+    %psum = psum + p;
+
     if track_winnings
       %disp(sprintf('winnings = %d',winnings));
-      winnings_sum = winnings_sum + winnings*p;
+
+      average_winnings(n) = average_winnings(n) + winnings*p;
+
       if winnings > initial_winnings
         num_wins = num_wins + 1;
         positive_winnings_sum = positive_winnings_sum + winnings;
       end
-      %disp(sprintf('winnings_sum = %d',winnings_sum));
+      %disp(sprintf('average_winnings(n) = %d',average_winnings(n)));
     end
+
     if track_losing_streaks
+
       if( losing_streak > max_losing_streak)
         max_losing_streak = losing_streak;
       end
+
       if( max_losing_streak > max_length_of_losing_streak)
         max_losing_streak = max_length_of_losing_streak;
       end
+
       if max_losing_streak > 1
         for j=2:max_losing_streak
           ratio_losing_streaks(n,j) = ratio_losing_streaks(n,j) + p;
@@ -158,7 +170,6 @@ for n=1:nmax
     disp(sprintf('n = %d',n));
   end
   if track_winnings
-    average_winnings(n) = winnings_sum;
     disp(sprintf('average winnings = %20.17f',average_winnings(n)));
     average_positive_winnings(n) = positive_winnings_sum/num_wins;
     disp(sprintf('average positive winnings = %20.17f', ...

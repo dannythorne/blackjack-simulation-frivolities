@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <fstream>
 using namespace std;
 
 #include "blackjack.h"
@@ -14,23 +15,29 @@ int main()
 
   srand( time(NULL));
 
-  Rules rules(/*numDecks*/4);
+  Rules rules( /*numDecks*/ 8
+             , /*maxPenetrationRatio*/ 0.7
+             , /*blackjackPayoutFactor*/ 1.5 );
 
   Table x(rules);
   if(  x.verbose()) { x.toggle_verbosity();}
   if(  x.displayHands()) { x.toggle_displayHands();}
   if(  x.displayShoe()) { x.toggle_displayShoe();}
-  cout << x << endl;
 
-  int numHandsAtATime = 1e8; //1e9;
+  ofstream fout;
+  fout.open("dump.m");
 
-  int i;
-  for( i=0; i<1; i++)
-  {
-    x.play(/*numHands*/numHandsAtATime);
-    cout << endl;
-    cout << x << endl;
-  }
+  fout << x << endl;
+
+  int numHands = 1e8;
+
+  cout << "Playing " << numHands << " hands." << endl;
+  x.play(numHands);
+
+  cout << "Writing results to \"dump.m\"." << endl;
+  fout << x << endl;
+
+  fout.close();
 
   cout << __FILE__ << " " << __LINE__ << " -- "
        << "main(), Terminating normally." << endl;

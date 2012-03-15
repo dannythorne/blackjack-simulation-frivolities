@@ -183,7 +183,7 @@ private:
   int m_numPushes;
   int m_numBlackjacks;
 
-  int m_numHandsToBreakBank;
+  int m_curHand;
   int m_minHandsToBreakBank;
   int m_maxHandsToBreakBank;
   int m_numBankBreaks;
