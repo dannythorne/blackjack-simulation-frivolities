@@ -87,9 +87,9 @@ int main()
   int reshuffleThresh = (int)floor(0.70*numCards);
   int handDealer[21];
   int numCardsDealer = 0;
-  int handPlayer[21];
+  int handPlayer[4][21];
   int numCardsPlayer = 0;
-  int handPlayerValue = 0;
+  int handPlayerValue[4] = { 0, 0, 0, 0};
   int handDealerValue = 0;
   int numAcesPlayer = 0;
   int numAcesDealer = 0;
@@ -101,8 +101,8 @@ int main()
   double wagerIncFactor=2.0;
 
 //int maxAllowableWager = -1;
-//int maxAllowableWager = 128;
-  int maxAllowableWager = (int)pow(2.,30.);
+  int maxAllowableWager = 128;
+//int maxAllowableWager = (int)pow(2.,30.);
 //int maxAllowableWager = pow(wagerIncFactor,7);
 
   double* winnings;
@@ -131,6 +131,7 @@ int main()
   bool allowDouble = true;
   bool allowSplit = false;
   bool doubleDown = false;
+  bool splitHands = false;
 
   cout << "maxhands: " << numHands << endl;
 
@@ -150,6 +151,7 @@ int main()
     playerBlackJack = false;
 
     doubleDown = false;
+    splitHands = false;
 
     counts[hand] = count[card];
 
@@ -183,51 +185,62 @@ int main()
     {
       wager = 1;
       losing = 0;
-      cout << "Cutting losses at hand " << hand << ". "
-           << "(Wager exceeded $" << maxAllowableWager << ".)" << endl;
+      if( showHands)
+      {
+        cout << "Cutting losses at hand " << hand << ". "
+             << "(Wager exceeded $" << maxAllowableWager << ".)" << endl;
+      }
     }
 
     if( wager > maxWager) { maxWager = wager;}
 
     // Deal first two cards to player and dealer.
-    handPlayer[numCardsPlayer++] = decks[card++];
+    handPlayer[0][numCardsPlayer++] = decks[card++];
     handDealer[numCardsDealer++] = decks[card++];
-    handPlayer[numCardsPlayer++] = decks[card++];
+    handPlayer[0][numCardsPlayer++] = decks[card++];
     handDealer[numCardsDealer++] = decks[card++];
 
-    handPlayerValue =
-      computeHandValue( handPlayer, numCardsPlayer, numAcesPlayer);
+    handPlayerValue[0] =
+      computeHandValue( handPlayer[0], numCardsPlayer, numAcesPlayer);
     handDealerValue =
       computeHandValue( handDealer, numCardsDealer, numAcesDealer);
 
     // Check for blackjack.
-    if( handPlayerValue == 21)
+    if( handPlayerValue[0] == 21)
     {
       playerBlackJack = true;
       numPlayerBlackJacks++;
     }
     else if( allowDouble
-          && playerShouldDouble( handPlayer, numCardsPlayer, handDealer[0]))
+          && playerShouldDouble( handPlayer[0], numCardsPlayer, handDealer[0]))
     {
       doubleDown = true;
       wager*=2;
-      handPlayer[numCardsPlayer++] = decks[card++];
-      handPlayerValue =
-        computeHandValue( handPlayer, numCardsPlayer, numAcesPlayer);
+      handPlayer[0][numCardsPlayer++] = decks[card++];
+      handPlayerValue[0] =
+        computeHandValue( handPlayer[0], numCardsPlayer, numAcesPlayer);
     }
     else if( allowSplit
-          && playerShouldSplit( handPlayer, numCardsPlayer, handDealer[0]))
+          && playerShouldSplit( handPlayer[0], numCardsPlayer, handDealer[0]))
     {
-      // TODO: Split
+      splitHands = true;
+      handPlayer[1][0] = handPlayer[0][1];
+
+      numCardsPlayer = 1;
+      // TODO: Finish first hand.
+
+      numCardsPlayer = 1;
+      // TODO: Finish second hand.
+
     }
     else
     {
       // Deal to player.
-      while( playerShouldHit( handPlayer, numCardsPlayer, handDealer[0]))
+      while( playerShouldHit( handPlayer[0], numCardsPlayer, handDealer[0]))
       {
-        handPlayer[numCardsPlayer++] = decks[card++];
-        handPlayerValue =
-          computeHandValue( handPlayer, numCardsPlayer, numAcesPlayer);
+        handPlayer[0][numCardsPlayer++] = decks[card++];
+        handPlayerValue[0] =
+          computeHandValue( handPlayer[0], numCardsPlayer, numAcesPlayer);
       }
     }
 
@@ -258,20 +271,20 @@ int main()
     if( showHands)
     {
       displayHand( "Dealer", handDealer, numCardsDealer);
-      if( handDealerValue <= 21 && handDealerValue > handPlayerValue)
+      if( handDealerValue <= 21 && handDealerValue > handPlayerValue[0])
       {
         cout << " Winner!";
       }
       cout << endl;
-      displayHand( "Player", handPlayer, numCardsPlayer);
-      if( handPlayerValue <=21
-       && ( handPlayerValue > handDealerValue || handDealerValue > 21))
+      displayHand( "Player", handPlayer[0], numCardsPlayer);
+      if( handPlayerValue[0] <=21
+       && ( handPlayerValue[0] > handDealerValue || handDealerValue > 21))
       {
         cout << " Winner!";
         cout << " ($" << wager << ")";
       }
-      if( handPlayerValue>21
-       || ( handDealerValue <= 21 && handDealerValue > handPlayerValue))
+      if( handPlayerValue[0]>21
+       || ( handDealerValue <= 21 && handDealerValue > handPlayerValue[0]))
       {
         cout << " (Lost " << losing+1 << " a row.)";
       }
@@ -279,9 +292,9 @@ int main()
     }
 
     // Update winnings, etc.
-    if( handPlayerValue <= 21)
+    if( handPlayerValue[0] <= 21)
     {
-      if( handPlayerValue > handDealerValue || handDealerValue > 21)
+      if( handPlayerValue[0] > handDealerValue || handDealerValue > 21)
       {
         winnings[hand+1] = winnings[hand] + wager;
         if( playerBlackJack)
@@ -290,13 +303,13 @@ int main()
         }
         losing = 0;
       }
-      else if( handDealerValue <=21 && handDealerValue > handPlayerValue)
+      else if( handDealerValue <= 21 && handDealerValue > handPlayerValue[0])
       {
         winnings[hand+1] = winnings[hand] - wager;
         if( betMartingale) { wager*=wagerIncFactor;}
         losing++;
       }
-      else if( handDealerValue <=21)
+      else if( handDealerValue <= 21)
       {
         if( showHands) { cout << "Push." << endl;}
         winnings[hand+1] = winnings[hand];

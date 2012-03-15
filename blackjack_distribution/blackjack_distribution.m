@@ -12,6 +12,7 @@ if track_winnings
   average_winnings = zeros(nmax,1);
   average_positive_winnings = zeros(nmax,1);
   ratio_wins = zeros(nmax,1);
+  weighted_num_wins = zeros(nmax,1);
 end
 
 pwin_raw = 0.433322; % 0.424249;
@@ -136,6 +137,7 @@ for n=1:nmax
 
       if winnings > initial_winnings
         num_wins = num_wins + 1;
+        weighted_num_wins(n) = weighted_num_wins(n) + p;
         positive_winnings_sum = positive_winnings_sum + winnings;
       end
       %disp(sprintf('average_winnings(n) = %d',average_winnings(n)));
@@ -247,6 +249,8 @@ if track_winnings
   figure;
   set(gcf,'position',[ 568 278 560 420]);
   hold on;
+  hnd=plot(weighted_num_wins);
+  set(hnd,'color', 0.5*[ 1 1 1]);
   hnd=plot(ratio_wins);
   title(sprintf('ratio of wins, initial amount=%d, base wager=%d',initial_winnings,initial_wager));
   xlabel('number of hands');
