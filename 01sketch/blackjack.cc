@@ -19,6 +19,7 @@ public:
   }
 
   bool allow_splitting() const;
+  bool allow_splitting_aces() const;
   bool allow_doubling_down() const;
   bool allow_doubling_down_after_splitting() const;
   bool say_it_is_time_to_reset_the( const Shoe& shoe) const;
@@ -51,14 +52,20 @@ public:
   void first_hand() { m_hand = 0;}
   bool has_more_hands() { return m_hand<m_num_hands;}
   void next_hand() { m_hand++;}
+  bool has_unplayed_hands();
 
   void sees( const int dealer_up_card) { m_dealer_up_card = dealer_up_card;}
 
   int value_of_card( const int card) const;
 
+  bool has_aces() const;
+  bool has_eights() const;
+  bool has_lesser_splittable_pairs() const;
+
   void dealt( const int next_card);
 
   void split();
+  int num_splits() const { return m_num_splits;}
 
   bool busts() const;
 
@@ -77,6 +84,8 @@ private:
 
   int m_num_cards_dealt_since_split[4];
   int m_num_splits;
+
+  int m_num_hands_played;
 
   const Rules& m_rules;
 
@@ -261,17 +270,7 @@ int main( const int argc, const char** argv)
         }
       }
 
-      // If splitting is allowed, the player may have up to four hands at this
-      // point. Play them one at a time.
-      //
-      // TODO: Change this:
-      //
-      for( player.first_hand(); player.has_more_hands(); player.next_hand())
-      //
-      // to something like this:
-      //
-//    while( player.has_unplayed_hands())
-      //
+      while( player.has_unplayed_hands())
       {
         if( player.should_double_down())
         {
@@ -319,6 +318,11 @@ bool Rules::allow_splitting() const
   return true;
 }
 
+bool Rules::allow_splitting_aces() const
+{
+  return true;
+}
+
 bool Rules::allow_doubling_down() const
 {
   return true;
@@ -341,19 +345,23 @@ bool Rules::say_dealer_hits_soft_17() const
 
 void Rules::display( ostream& o) const
 {
-  o << "  allow splitting ---------------- : "
+  o << "  allow splitting ------------------ : "
     << ( (allow_splitting())?("yes"):("no"));
   o << endl;
 
-  o << "  allow double down -------------- : "
+  o << "  allow splitting aces ------------- : "
+    << ( (allow_splitting_aces())?("yes"):("no"));
+  o << endl;
+
+  o << "  allow doubling down -------------- : "
     << ( (allow_doubling_down())?("yes"):("no"));
   o << endl;
 
-  o << "  allow double down after splitting: "
+  o << "  allow doubling down after splitting: "
     << ( (allow_doubling_down_after_splitting())?("yes"):("no"));
   o << endl;
 
-  o << "  dealer hits soft 17 ------------ : "
+  o << "  dealer hits soft 17 -------------- : "
     << ( (say_dealer_hits_soft_17())?("yes"):("no"));
   o << endl;
 }
@@ -474,12 +482,30 @@ void Player::init( const int round)
   m_num_cards_dealt_since_split[2] = 0;
   m_num_cards_dealt_since_split[3] = 0;
 
+  m_num_hands_played = 0;
+
 }
 
-bool Player::should_split()
+bool Player::has_eights() const
 {
-  // TODO
-  return false;
+  if( num_cards()>2) { return false;}
+  return m_hands[m_hand][0] == 8 && m_hands[m_hand][1] == 8;
+}
+
+bool Player::has_aces() const
+{
+  if( num_cards()>2) { return false;}
+  return m_hands[m_hand][0] == 1 && m_hands[m_hand][1] == 1;
+}
+
+bool Player::has_lesser_splittable_pairs() const
+{
+  if( num_cards()>2) { return false;}
+  return ( m_hands[m_hand][0] == 2 && m_hands[m_hand][1] == 2)
+      || ( m_hands[m_hand][0] == 3 && m_hands[m_hand][1] == 3)
+      || ( m_hands[m_hand][0] == 6 && m_hands[m_hand][1] == 6)
+      || ( m_hands[m_hand][0] == 7 && m_hands[m_hand][1] == 7)
+      || ( m_hands[m_hand][0] == 9 && m_hands[m_hand][1] == 9);
 }
 
 bool Player::should_double_down()
@@ -499,6 +525,17 @@ bool Player::should_hit()
 {
   int hand_val = m_hand_value[m_hand];
   if( hand_val < 17) { return true;}
+  return false;
+}
+
+bool Player::has_unplayed_hands()
+{
+  if( m_num_hands_played < m_num_hands)
+  {
+    m_hand = m_num_hands_played;
+    m_num_hands_played++;
+    return true;
+  }
   return false;
 }
 
@@ -525,6 +562,35 @@ int Player::value_of_card( const int card) const
   return card_val;
 }
 
+bool Player::should_split()
+{
+  if( m_num_splits<3)
+  {
+    if(/*test splitting mechanism*/false)
+    {
+      return true;
+    }
+    for( m_hand=0; m_hand<num_hands(); m_hand++)
+    {
+      if( has_eights())
+      {
+        return true;
+      }
+      else if( m_rules.allow_splitting_aces() && has_aces())
+      {
+        return true;
+      }
+      else if( ( m_dealer_up_card>=2 || m_dealer_up_card<=6)
+             &&( has_lesser_splittable_pairs()) )
+      {
+        return true;
+      }
+    }
+    m_hand = 0;
+  }
+  return false;
+}
+
 void Player::split()
 {
   m_num_cards_dealt_since_split[m_num_splits] = 0;
@@ -543,6 +609,7 @@ void Player::split()
         exit(1);
       }
 
+#if 0
       m_hands[1][0] = m_hands[0][1];
 
       m_num_cards[0]=1;
@@ -552,6 +619,19 @@ void Player::split()
       m_hand_value[1] = value_of_card( m_hands[1][0]);
 
       m_num_hands++;
+#else
+      int new_hand = m_num_splits;
+
+      m_hands[new_hand][0] = m_hands[m_hand][1];
+
+      m_num_cards[m_hand]=1;
+      m_hand_value[m_hand] = value_of_card( m_hands[m_hand][0]);
+
+      m_num_cards[new_hand]=1;
+      m_hand_value[new_hand] = value_of_card( m_hands[new_hand][0]);
+
+      m_num_hands++;
+#endif
 
       if( m_num_hands!=2)
       {
@@ -564,10 +644,68 @@ void Player::split()
     }
     case 2:
     {
+      if( m_num_cards[m_hand]!=2)
+      {
+        cerr << __FILE__ << " " << __LINE__ << " -- "
+             << "ERROR -- Attempt to split a hand of "
+             << m_num_cards[0] << " cards."
+             << endl;
+        exit(1);
+      }
+
+      int new_hand = m_num_splits;
+
+      m_hands[new_hand][0] = m_hands[m_hand][1];
+
+      m_num_cards[m_hand]=1;
+      m_hand_value[m_hand] = value_of_card( m_hands[m_hand][0]);
+
+      m_num_cards[new_hand]=1;
+      m_hand_value[new_hand] = value_of_card( m_hands[new_hand][0]);
+
+      m_num_hands++;
+
+      if( m_num_hands!=3)
+      {
+        cerr << __FILE__ << " " << __LINE__ << " -- "
+             << "BOOM!"
+             << endl;
+        exit(1);
+      }
+
       break;
     }
     case 3:
     {
+      if( m_num_cards[m_hand]!=2)
+      {
+        cerr << __FILE__ << " " << __LINE__ << " -- "
+             << "ERROR -- Attempt to split a hand of "
+             << m_num_cards[0] << " cards."
+             << endl;
+        exit(1);
+      }
+
+      int new_hand = m_num_splits;
+
+      m_hands[new_hand][0] = m_hands[m_hand][1];
+
+      m_num_cards[m_hand]=1;
+      m_hand_value[m_hand] = value_of_card( m_hands[m_hand][0]);
+
+      m_num_cards[new_hand]=1;
+      m_hand_value[new_hand] = value_of_card( m_hands[new_hand][0]);
+
+      m_num_hands++;
+
+      if( m_num_hands!=4)
+      {
+        cerr << __FILE__ << " " << __LINE__ << " -- "
+             << "BOOM!"
+             << endl;
+        exit(1);
+      }
+
       break;
     }
     default:
@@ -579,11 +717,6 @@ void Player::split()
       break;
     }
   }
-}
-
-bool Player::busts() const
-{
-  return m_hand_value[m_hand]>21;
 }
 
 void Player::dealt( const int next_card)
@@ -623,10 +756,62 @@ void Player::dealt( const int next_card)
       }
       case 2:
       {
+        int new_hand = m_num_splits;
+        if( m_num_cards_dealt_since_split[m_num_splits-1]==0)
+        {
+          m_hands[m_hand][m_num_cards[m_hand]] = next_card;
+          m_num_cards[m_hand]++;
+          m_num_cards_dealt_since_split[m_num_splits-1]++;
+          m_hand_value[m_hand] += value_of_card( m_hands[m_hand][1]);
+        }
+        else if( m_num_cards_dealt_since_split[m_num_splits-1]==1)
+        {
+          m_hands[new_hand][m_num_cards[new_hand]] = next_card;
+          m_num_cards[new_hand]++;
+          m_num_cards_dealt_since_split[m_num_splits-1]++;
+          m_hand_value[new_hand] += value_of_card( m_hands[new_hand][1]);
+        }
+        else
+        {
+          cerr << __FILE__ << " " << __LINE__ << " -- "
+               << "ERROR -- Unhandled case: "
+               << "m_num_cards_dealt_since_split["
+               << m_num_splits-1
+               << "] = "
+               << m_num_cards_dealt_since_split[m_num_splits-1]
+               << endl;
+          exit(1);
+        }
         break;
       }
       case 3:
       {
+        int new_hand = m_num_splits;
+        if( m_num_cards_dealt_since_split[m_num_splits-1]==0)
+        {
+          m_hands[m_hand][m_num_cards[m_hand]] = next_card;
+          m_num_cards[m_hand]++;
+          m_num_cards_dealt_since_split[m_num_splits-1]++;
+          m_hand_value[m_hand] += value_of_card( m_hands[m_hand][1]);
+        }
+        else if( m_num_cards_dealt_since_split[m_num_splits-1]==1)
+        {
+          m_hands[new_hand][m_num_cards[new_hand]] = next_card;
+          m_num_cards[new_hand]++;
+          m_num_cards_dealt_since_split[m_num_splits-1]++;
+          m_hand_value[new_hand] += value_of_card( m_hands[new_hand][1]);
+        }
+        else
+        {
+          cerr << __FILE__ << " " << __LINE__ << " -- "
+               << "ERROR -- Unhandled case: "
+               << "m_num_cards_dealt_since_split["
+               << m_num_splits-1
+               << "] = "
+               << m_num_cards_dealt_since_split[m_num_splits-1]
+               << endl;
+          exit(1);
+        }
         break;
       }
       default:
@@ -666,19 +851,35 @@ void Player::dealt( const int next_card)
   }
 }
 
+bool Player::busts() const
+{
+  return m_hand_value[m_hand]>21;
+}
+
 void Player::display_hands( ostream& o) const
 {
   int i, j;
 
+  // TODO: Display cards like this?
+  //
+  // +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+
+  // |   | |   | |   | |   | |   | |   | |   | |   | |   | |   |
+  // | 0 | | 1 | | 2 | | 3 | | 4 | | 5 | | 6 | | 7 | | 8 | | 9 |
+  // |   | |   | |   | |   | |   | |   | |   | |   | |   | |   |
+  // +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+
+  //
+
   for( j=0; j<num_hands(); j++)
   {
     o << " " << setw(2) << m_hand_value[j];
-    o << " [";
+    o << " ";
+    o << "[";
     for( i=0; i<m_num_cards[j]; i++)
     {
       o << m_hands[j][i];
     }
-    o << "];";
+    o << "]";
+    o << ";";
   }
 }
 
@@ -775,7 +976,16 @@ void Message::after_player_splits() const
   if( m_show)
   {
     cout << endl;
-    cout << "  *** player splits ***" << endl;
+    if( m_player.num_splits()>1)
+    {
+      cout << "  *** player splits hand "
+           << m_player.hand()+1
+           << " ***" << endl;
+    }
+    else
+    {
+      cout << "  *** player splits ***" << endl;
+    }
     cout << endl;
     cout << "  player ";
     m_player.display_hands(cout);
@@ -865,7 +1075,7 @@ void Message::at_end_of_round() const
   if( m_show)
   {
     cout << endl;
-    cout << "  end of round penetration"
+    cout << "  penetration"
          << ": " << m_shoe.penetration()
          << " (" << m_shoe.penetration_ratio() << ")"
          << endl;
