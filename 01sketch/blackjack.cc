@@ -111,6 +111,7 @@ public:
   bool busts() const;
 
   void display_hand( ostream& o) const;
+  void display_hand_with_only_up_card_showing( ostream& o) const;
 
 private:
   int m_hand[21];
@@ -188,6 +189,7 @@ public:
   void at_beginning_of_round() const;
   void at_end_of_round() const;
   void after_initial_deal() const;
+  void after_dealer_shows_up_card() const;
   void after_player_splits() const;
   void after_player_hits() const;
   void after_player_stands() const;
@@ -272,13 +274,15 @@ int main( const int argc, const char** argv)
 
       while( player.has_unplayed_hands())
       {
-        if( player.should_double_down())
+        if( player.has_blackjack())
         {
+          // TODO:
         }
         else
         {
-          if( player.has_blackjack())
+          if( player.should_double_down())
           {
+            // TODO:
           }
           else
           {
@@ -291,6 +295,8 @@ int main( const int argc, const char** argv)
           }
         }
       }
+
+      message.after_dealer_shows_up_card();
 
       while( dealer.should_hit())
       {
@@ -440,6 +446,23 @@ void Dealer::dealt( const int next_card)
 bool Dealer::busts() const
 {
   return m_hand_value > 21;
+}
+
+void Dealer::display_hand_with_only_up_card_showing( ostream& o) const
+{
+  if( m_num_cards > 2)
+  {
+    cerr << __FILE__ << " " << __LINE__ << " -- "
+         << "ERROR: dealer should only have two cards when hole card is hidden."
+         << endl;
+    exit(1);
+  }
+  int i;
+  o << " ??";
+  o << " [";
+  o << m_hand[0];
+  o << "#";
+  o << "];";
 }
 
 void Dealer::display_hand( ostream& o) const
@@ -961,12 +984,24 @@ void Message::after_initial_deal() const
 {
   if( m_show)
   {
-    cout << "  dealer ";
-    m_dealer.display_hand(cout);
+    cout << endl;
+    cout << "  dealer: ";
+    m_dealer.display_hand_with_only_up_card_showing(cout);
     cout << endl;
 
-    cout << "  player ";
+    cout << "  player: ";
     m_player.display_hands(cout);
+    cout << endl;
+  }
+}
+
+void Message::after_dealer_shows_up_card() const
+{
+  if( m_show)
+  {
+    cout << endl;
+    cout << "  dealer: ";
+    m_dealer.display_hand(cout);
     cout << endl;
   }
 }
@@ -978,16 +1013,14 @@ void Message::after_player_splits() const
     cout << endl;
     if( m_player.num_splits()>1)
     {
-      cout << "  *** player splits hand "
-           << m_player.hand()+1
-           << " ***" << endl;
+      cout << "  player splits hand "
+           << m_player.hand()+1;
     }
     else
     {
-      cout << "  *** player splits ***" << endl;
+      cout << "  player splits";
     }
-    cout << endl;
-    cout << "  player ";
+    cout << " with: ";
     m_player.display_hands(cout);
     cout << endl;
   }
@@ -998,18 +1031,12 @@ void Message::after_player_hits() const
   if( m_show)
   {
     cout << endl;
-    cout << "  *** player hits";
+    cout << "  player hits";
     if( m_player.num_hands()>1)
     {
       cout << " hand " << m_player.hand()+1;
     }
-    else
-    {
-      cout << " ";
-    }
-    cout << " ***" << endl;
-    cout << endl;
-    cout << "  player ";
+    cout << ": ";
     m_player.display_hands(cout);
     cout << endl;
   }
@@ -1022,21 +1049,19 @@ void Message::after_player_stands() const
     cout << endl;
     if( m_player.busts())
     {
-      cout << "  *** player busts";
+      cout << "  player busts";
     }
     else
     {
-      cout << "  *** player stands";
+      cout << "  player stands";
     }
     if( m_player.num_hands()>1)
     {
       cout << " on hand " << m_player.hand()+1;
     }
-    else
-    {
-      cout << " ";
-    }
-    cout << " ***" << endl;
+    cout << " with: ";
+    m_player.display_hands(cout);
+    cout << endl;
   }
 }
 
@@ -1047,7 +1072,7 @@ void Message::after_dealer_hits() const
     cout << endl;
     cout << "  *** dealer hits ***" << endl;
     cout << endl;
-    cout << "  dealer ";
+    cout << "  dealer: ";
     m_dealer.display_hand(cout);
     cout << endl;
   }
@@ -1066,7 +1091,6 @@ void Message::after_dealer_stands() const
     {
       cout << "  *** dealer stands ***" << endl;
     }
-    cout << endl;
   }
 }
 
