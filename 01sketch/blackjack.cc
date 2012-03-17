@@ -48,10 +48,11 @@ public:
   int num_hands() const { return m_num_hands;}
   int num_cards() const { return m_num_cards[m_hand];}
   int hand() const { return m_hand;}
+  int hand_value() const { return m_hand_value[m_hand];}
 
-  void first_hand() { m_hand = 0;}
-  bool has_more_hands() { return m_hand<m_num_hands;}
-  void next_hand() { m_hand++;}
+  void first_hand() const { m_hand = 0;}
+  bool has_more_hands() const { return m_hand<m_num_hands;}
+  void next_hand() const { m_hand++;}
   bool has_unplayed_hands();
 
   void sees( const int dealer_up_card) { m_dealer_up_card = dealer_up_card;}
@@ -68,12 +69,14 @@ public:
   int num_splits() const { return m_num_splits;}
 
   bool busts() const;
+  bool busts_all_hands() const;
 
   void display_hands( ostream& o) const;
+  void display_hand( ostream& o) const;
 
 private:
   int m_hands[4][21];
-  int m_hand;
+  mutable int m_hand;
   int m_num_hands;
   int m_num_cards[4];
 
@@ -189,12 +192,14 @@ public:
   void at_beginning_of_round() const;
   void at_end_of_round() const;
   void after_initial_deal() const;
-  void after_dealer_shows_up_card() const;
+  void after_dealer_shows_hole_card() const;
   void after_player_splits() const;
+  void after_last_split() const;
   void after_player_hits() const;
   void after_player_stands() const;
   void after_dealer_hits() const;
   void after_dealer_stands() const;
+  void after_shoe_reset() const;
 
   void should_show() { m_show = true;}
   void should_not_show() { m_show = false;}
@@ -270,6 +275,7 @@ int main( const int argc, const char** argv)
           shoe.deal_to( player);
           message.after_player_splits();
         }
+        message.after_last_split();
       }
 
       while( player.has_unplayed_hands())
@@ -296,12 +302,15 @@ int main( const int argc, const char** argv)
         }
       }
 
-      message.after_dealer_shows_up_card();
-
-      while( dealer.should_hit())
+      if( !player.busts_all_hands())
       {
-        shoe.deal_to( dealer);
-        message.after_dealer_hits();
+        message.after_dealer_shows_hole_card();
+
+        while( dealer.should_hit())
+        {
+          shoe.deal_to( dealer);
+          message.after_dealer_hits();
+        }
       }
       message.after_dealer_stands();
 
@@ -309,7 +318,11 @@ int main( const int argc, const char** argv)
 
     message.at_end_of_round();
 
-    if( rules.say_it_is_time_to_reset_the( shoe)) { shoe.reset();}
+    if( rules.say_it_is_time_to_reset_the( shoe))
+    {
+      shoe.reset();
+      message.after_shoe_reset();
+    }
 
   }
 
@@ -878,6 +891,18 @@ bool Player::busts() const
 {
   return m_hand_value[m_hand]>21;
 }
+bool Player::busts_all_hands() const
+{
+  int i;
+  for( i=0; i<m_num_hands; i++)
+  {
+    if( m_hand_value[i] <= 21)
+    {
+      return false;
+    }
+  }
+  return true;
+}
 
 void Player::display_hands( ostream& o) const
 {
@@ -904,6 +929,20 @@ void Player::display_hands( ostream& o) const
     o << "]";
     o << ";";
   }
+}
+
+void Player::display_hand( ostream& o) const
+{
+  int i;
+  o << " " << setw(2) << m_hand_value[m_hand];
+  o << " ";
+  o << "[";
+  for( i=0; i<m_num_cards[m_hand]; i++)
+  {
+    o << m_hands[m_hand][i];
+  }
+  o << "]";
+  o << ";";
 }
 
 //##############################################################################
@@ -992,15 +1031,15 @@ void Message::after_initial_deal() const
     cout << "  player: ";
     m_player.display_hands(cout);
     cout << endl;
+    cout << endl;
   }
 }
 
-void Message::after_dealer_shows_up_card() const
+void Message::after_dealer_shows_hole_card() const
 {
   if( m_show)
   {
-    cout << endl;
-    cout << "  dealer: ";
+    cout << "  dealer       : ";
     m_dealer.display_hand(cout);
     cout << endl;
   }
@@ -1010,7 +1049,6 @@ void Message::after_player_splits() const
 {
   if( m_show)
   {
-    cout << endl;
     if( m_player.num_splits()>1)
     {
       cout << "  player splits hand "
@@ -1018,10 +1056,18 @@ void Message::after_player_splits() const
     }
     else
     {
-      cout << "  player splits";
+      cout << "  player splits       ";
     }
-    cout << " with: ";
+    cout << ": ";
     m_player.display_hands(cout);
+    cout << endl;
+  }
+}
+
+void Message::after_last_split() const
+{
+  if( m_show)
+  {
     cout << endl;
   }
 }
@@ -1030,14 +1076,18 @@ void Message::after_player_hits() const
 {
   if( m_show)
   {
-    cout << endl;
-    cout << "  player hits";
+    cout << "  player *hits*";
     if( m_player.num_hands()>1)
     {
       cout << " hand " << m_player.hand()+1;
     }
     cout << ": ";
-    m_player.display_hands(cout);
+    m_player.display_hand(cout);
+    if( m_player.busts())
+    {
+      cout << " *bust*";
+      cout << endl;
+    }
     cout << endl;
   }
 }
@@ -1046,22 +1096,18 @@ void Message::after_player_stands() const
 {
   if( m_show)
   {
-    cout << endl;
-    if( m_player.busts())
-    {
-      cout << "  player busts";
-    }
-    else
+    if( !m_player.busts())
     {
       cout << "  player stands";
+      if( m_player.num_hands()>1)
+      {
+        cout << " hand " << m_player.hand()+1;
+      }
+      cout << ": ";
+      m_player.display_hand(cout);
+      cout << endl;
+      cout << endl;
     }
-    if( m_player.num_hands()>1)
-    {
-      cout << " on hand " << m_player.hand()+1;
-    }
-    cout << " with: ";
-    m_player.display_hands(cout);
-    cout << endl;
   }
 }
 
@@ -1069,11 +1115,12 @@ void Message::after_dealer_hits() const
 {
   if( m_show)
   {
-    cout << endl;
-    cout << "  *** dealer hits ***" << endl;
-    cout << endl;
-    cout << "  dealer: ";
+    cout << "  dealer *hits*: ";
     m_dealer.display_hand(cout);
+    if( m_dealer.busts())
+    {
+      cout << " *bust*";
+    }
     cout << endl;
   }
 }
@@ -1082,14 +1129,11 @@ void Message::after_dealer_stands() const
 {
   if( m_show)
   {
-    cout << endl;
-    if( m_dealer.busts())
+    if( !m_dealer.busts())
     {
-      cout << "  *** dealer busts ***" << endl;
-    }
-    else
-    {
-      cout << "  *** dealer stands ***" << endl;
+      cout << "  dealer stands: ";
+      m_dealer.display_hand(cout);
+      cout << endl;
     }
   }
 }
@@ -1099,10 +1143,111 @@ void Message::at_end_of_round() const
   if( m_show)
   {
     cout << endl;
+    cout << "  Results";
+    cout << endl;
+    if( m_player.num_hands() > 1)
+    {
+      for( m_player.first_hand();
+           m_player.has_more_hands();
+           m_player.next_hand() )
+      {
+        cout << endl;
+        cout << "    hand " << m_player.hand()+1 << " -- ";
+        if( m_player.busts())
+        {
+          cout << "player lost  (busted)";
+        }
+        else if( m_dealer.busts())
+        {
+          cout << "player won!  (dealer busted)";
+        }
+        else
+        {
+          if( m_player.hand_value() < m_dealer.hand_value())
+          {
+            cout << "player lost  (";
+            m_dealer.display_hand(cout);
+            cout << "  > ";
+            m_player.display_hand(cout);
+            cout << ")";
+          }
+          else if( m_player.hand_value() > m_dealer.hand_value())
+          {
+            cout << "player won!  (";
+            m_dealer.display_hand(cout);
+            cout << "  < ";
+            m_player.display_hand(cout);
+            cout << ")";
+          }
+          else
+          {
+            cout << "*push*       (";
+            m_dealer.display_hand(cout);
+            cout << "  = ";
+            m_player.display_hand(cout);
+            cout << ")";
+          }
+        }
+      }
+    }
+    else
+    {
+      cout << endl;
+      if( m_player.busts())
+      {
+        cout << "    player lost  (busted)";
+      }
+      else if( m_dealer.busts())
+      {
+        cout << "    player won!  (dealer busted)";
+      }
+      else
+      {
+        if( m_player.hand_value() < m_dealer.hand_value())
+        {
+          cout << "    player lost  (";
+          m_dealer.display_hand(cout);
+          cout << "  > ";
+          m_player.display_hand(cout);
+          cout << ")";
+        }
+        else if( m_player.hand_value() > m_dealer.hand_value())
+        {
+          cout << "    player won!  (";
+          m_dealer.display_hand(cout);
+          cout << "  < ";
+          m_player.display_hand(cout);
+          cout << ")";
+        }
+        else
+        {
+          cout << "    *push*       (";
+          m_dealer.display_hand(cout);
+          cout << "  = ";
+          m_player.display_hand(cout);
+          cout << ")";
+        }
+      }
+    }
+    cout << endl;
+    cout << endl;
     cout << "  penetration"
          << ": " << m_shoe.penetration()
          << " (" << m_shoe.penetration_ratio() << ")"
          << endl;
+    cout << endl;
+    cout << string(72,'-') << endl;
+  }
+}
+
+void Message::after_shoe_reset() const
+{
+  if( m_show)
+  {
+    cout << "  shoe reset (penetration ratio"
+         << " exceeded "
+         << m_rules.max_penetration_ratio()
+         << " threshhold)" << endl;
     cout << string(72,'-') << endl;
   }
 }
