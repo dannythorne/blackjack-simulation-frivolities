@@ -40,6 +40,8 @@ public:
 
   void init( const int round);
 
+  void places_bet();
+
   bool has_blackjack();
   bool should_split();
   bool should_double_down();
@@ -75,6 +77,9 @@ public:
   void display_hand( ostream& o) const;
 
 private:
+
+  const Rules& m_rules;
+
   int m_hands[4][21];
   mutable int m_hand;
   int m_num_hands;
@@ -89,8 +94,6 @@ private:
   int m_num_splits;
 
   int m_num_hands_played;
-
-  const Rules& m_rules;
 
 };
 
@@ -146,6 +149,8 @@ public:
   int penetration() const { return m_penetration;}
   double penetration_ratio() const;
 
+  void display( ostream& o) const;
+
 private:
   int m_cards[10]; // { |10s|, |As|, |2s|, ..., |9s|}
   int m_num_decks;
@@ -199,7 +204,10 @@ public:
   void after_player_stands() const;
   void after_dealer_hits() const;
   void after_dealer_stands() const;
+  void before_shoe_reset() const;
   void after_shoe_reset() const;
+  void when_player_gets_blackjack() const;
+  void when_dealer_gets_blackjack() const;
 
   void should_show() { m_show = true;}
   void should_not_show() { m_show = false;}
@@ -251,6 +259,8 @@ int main( const int argc, const char** argv)
 
     message.at_beginning_of_round();
 
+    player.places_bet();
+
     shoe.deal_to( player);
     shoe.deal_to( dealer);
     shoe.deal_to( player);
@@ -260,7 +270,11 @@ int main( const int argc, const char** argv)
 
     if( dealer.has_blackjack())
     {
-      // TODO
+      message.when_dealer_gets_blackjack();
+      if( player.has_blackjack())
+      {
+        message.when_player_gets_blackjack();
+      }
     }
     else
     {
@@ -282,6 +296,7 @@ int main( const int argc, const char** argv)
       {
         if( player.has_blackjack())
         {
+          message.when_player_gets_blackjack();
           // TODO:
         }
         else
@@ -302,7 +317,7 @@ int main( const int argc, const char** argv)
         }
       }
 
-      if( !player.busts_all_hands())
+      if( !player.has_blackjack() && !player.busts_all_hands())
       {
         message.after_dealer_shows_hole_card();
 
@@ -311,8 +326,8 @@ int main( const int argc, const char** argv)
           shoe.deal_to( dealer);
           message.after_dealer_hits();
         }
+        message.after_dealer_stands();
       }
-      message.after_dealer_stands();
 
     }
 
@@ -320,6 +335,7 @@ int main( const int argc, const char** argv)
 
     if( rules.say_it_is_time_to_reset_the( shoe))
     {
+      message.before_shoe_reset();
       shoe.reset();
       message.after_shoe_reset();
     }
@@ -389,13 +405,22 @@ void Rules::display( ostream& o) const
 
 bool Player::has_blackjack()
 {
-  // TODO
+  if( m_num_hands==1 && m_num_cards[0]==2)
+  {
+    if( hand_value() == 21)
+    {
+      return true;
+    }
+  }
   return false;
 }
 
 bool Dealer::has_blackjack()
 {
-  // TODO
+  if( m_num_cards==2 && hand_value() == 21)
+  {
+    return true;
+  }
   return false;
 }
 
@@ -410,8 +435,7 @@ void Dealer::init( const int round)
 
 int Dealer::up_card()
 {
-  // TODO
-  return 0;
+  return m_hand[0];
 }
 
 bool Dealer::should_hit()
@@ -520,6 +544,11 @@ void Player::init( const int round)
 
   m_num_hands_played = 0;
 
+}
+
+void Player::places_bet()
+{
+  // TODO:
 }
 
 bool Player::has_eights() const
@@ -950,7 +979,7 @@ void Player::display_hand( ostream& o) const
 void Shoe::reset()
 {
   int i;
-  for( i=0; i<=10; i++)
+  for( i=0; i<10; i++)
   {
     m_cards[i] = m_num_decks*4; // Four of each card per deck, except...
   }
@@ -992,6 +1021,21 @@ void Shoe::deal_to( Dealer& dealer)
 double Shoe::penetration_ratio() const
 {
   return (double)m_penetration / m_num_cards_total;
+}
+
+void Shoe::display( ostream& o) const
+{
+  int i;
+  cout << "  shoe:";
+  for( i=0; i<10; i++)
+  {
+    o << " " << m_cards[i];
+  }
+  o << " -- penetration " << penetration()
+    << " ( ratio "
+    << penetration_ratio()
+    << ")";
+  o << endl;
 }
 
 //##############################################################################
@@ -1240,15 +1284,49 @@ void Message::at_end_of_round() const
   }
 }
 
-void Message::after_shoe_reset() const
+void Message::before_shoe_reset() const
 {
   if( m_show)
   {
+    m_shoe.display(cout);
+    cout << endl;
     cout << "  shoe reset (penetration ratio"
          << " exceeded "
          << m_rules.max_penetration_ratio()
          << " threshhold)" << endl;
+    cout << endl;
+  }
+}
+
+void Message::after_shoe_reset() const
+{
+  if( m_show)
+  {
+    m_shoe.display(cout);
     cout << string(72,'-') << endl;
+  }
+}
+
+void Message::when_player_gets_blackjack() const
+{
+  if( m_show)
+  {
+    cout << "  player *** Blackjack *** ";
+    cout << endl;
+    cout << endl;
+  }
+}
+
+void Message::when_dealer_gets_blackjack() const
+{
+  if( m_show)
+  {
+    cout << "  dealer: ";
+    m_dealer.display_hand(cout);
+    cout << endl;
+    cout << "  dealer *** Blackjack *** ";
+    cout << endl;
+    cout << endl;
   }
 }
 
