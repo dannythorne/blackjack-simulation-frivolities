@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cmath> // Warning: round is redeclared in below scopes.
 #include <string>
+#include <vector>
 using namespace std;
 
 void extract_args( const int argc, const char** argv, int& numRounds);
@@ -38,14 +39,14 @@ class Player
 public:
   Player( const Rules& rules) : m_rules(rules) { m_num_hands = 1;}
 
-  void init( const int round);
+  void init();
 
   void places_bet();
 
-  bool has_blackjack();
-  bool should_split();
-  bool should_double_down();
-  bool should_hit();
+  bool has_blackjack() const;
+  bool should_split() const;
+  bool should_double_down() const;
+  bool should_hit() const;
 
   int num_hands() const { return m_num_hands;}
   int num_cards() const { return m_num_cards[m_hand];}
@@ -55,7 +56,7 @@ public:
   void first_hand() const { m_hand = 0;}
   bool has_more_hands() const { return m_hand<m_num_hands;}
   void next_hand() const { m_hand++;}
-  bool has_unplayed_hands();
+  bool has_unplayed_hands() const;
 
   void sees( const int dealer_up_card) { m_dealer_up_card = dealer_up_card;}
 
@@ -70,8 +71,8 @@ public:
   void split();
   int num_splits() const { return m_num_splits;}
 
-  bool busts() const;
-  bool busts_all_hands() const;
+  bool busted() const;
+  bool busted_all_hands() const;
 
   void display_hands( ostream& o) const;
   void display_hand( ostream& o) const;
@@ -93,7 +94,7 @@ private:
   int m_num_cards_dealt_since_split[4];
   int m_num_splits;
 
-  int m_num_hands_played;
+  mutable int m_num_hands_played;
 
 };
 
@@ -102,10 +103,10 @@ class Dealer
 public:
   Dealer( const Rules& rules) : m_rules(rules) {}
 
-  void init( const int round);
+  void init();
 
-  bool has_blackjack();
-  bool should_hit();
+  bool has_blackjack() const;
+  bool should_hit() const;
 
   int up_card();
 
@@ -114,7 +115,7 @@ public:
 
   void dealt( const int next_card);
 
-  bool busts() const;
+  bool busted() const;
 
   void display_hand( ostream& o) const;
   void display_hand_with_only_up_card_showing( ostream& o) const;
@@ -162,15 +163,50 @@ private:
 class Scribe
 {
 public:
-  Scribe() {}
-
-  void init( const int round) { m_round = round;}
+  Scribe( const Rules& rules
+        , const Shoe& shoe
+        , const Player& player
+        , const Dealer& dealer
+        , const int num_rounds_to_play=9)
+  : m_rules(rules)
+  , m_shoe(shoe)
+  , m_player(player)
+  , m_dealer(dealer)
+  {
+    m_num_rounds_to_play = num_rounds_to_play;
+    m_round = 1;
+    m_hand = 0;
+  }
 
   int round() const { return m_round;}
 
+  bool says_to_keep_playing();
+
+  void records_results();
+
 private:
 
+  const Rules& m_rules;
+  const Shoe& m_shoe;
+  const Player& m_player;
+  const Dealer& m_dealer;
+
   int m_round;
+  int m_num_rounds_to_play;
+
+  int m_hand;
+
+  vector<int> wins;
+  vector<float> winnings;
+  vector<int> wins_cumulative;
+  vector<float> winnings_cumulative;
+  vector<int> hand_counts;
+
+  void player_busted();
+  void player_won();
+  void player_lost();
+  void push();
+  void player_got_blackjack();
 
 };
 
@@ -230,9 +266,9 @@ int main( const int argc, const char** argv)
 {
   cout << __FILE__ << " " << __LINE__ << " -- " << "Hello." << endl;
 
-  int numRounds = 9;
+  int num_rounds = 9;
 
-  extract_args( argc, argv, numRounds);
+  extract_args( argc, argv, num_rounds);
 
   Rules rules;
 
@@ -241,21 +277,16 @@ int main( const int argc, const char** argv)
   Player player(rules);
   Dealer dealer(rules);
 
-  Scribe scribe;
+  Scribe scribe( rules,shoe,player,dealer, num_rounds);
 
-  Message message(rules,shoe,player,dealer,scribe,/*show*/true);
+  Message message( rules,shoe,player,dealer,scribe, /*show*/true);
 
   message.before_first_round();
 
-  int i;
-
-  int round;
-
-  for( round=1; round<=numRounds; round++)
+  while( scribe.says_to_keep_playing())
   {
-    scribe.init( round);
-    player.init( round);
-    dealer.init( round);
+    player.init();
+    dealer.init();
 
     message.at_beginning_of_round();
 
@@ -297,7 +328,6 @@ int main( const int argc, const char** argv)
         if( player.has_blackjack())
         {
           message.when_player_gets_blackjack();
-          // TODO:
         }
         else
         {
@@ -317,7 +347,7 @@ int main( const int argc, const char** argv)
         }
       }
 
-      if( !player.has_blackjack() && !player.busts_all_hands())
+      if( !player.has_blackjack() && !player.busted_all_hands())
       {
         message.after_dealer_shows_hole_card();
 
@@ -333,6 +363,8 @@ int main( const int argc, const char** argv)
 
     message.at_end_of_round();
 
+    scribe.records_results();
+
     if( rules.say_it_is_time_to_reset_the( shoe))
     {
       message.before_shoe_reset();
@@ -344,6 +376,37 @@ int main( const int argc, const char** argv)
 
   cout << endl << __FILE__ << " " << __LINE__ << " -- " << "Good Bye." << endl;
   return 0;
+}
+
+//##############################################################################
+
+void extract_args( const int argc, const char** argv, int& numRounds)
+{
+  int n;
+  switch( argc)
+  {
+    case 1: // ./a.exe
+    {
+      break;
+    }
+
+    case 2: // ./a.exe numRounds
+    {
+      n = atoi(argv[1]);
+      if( n) { numRounds = n;}
+
+      break;
+    }
+
+    case 3: // ./a.exe numRounds ----
+    {
+      break;
+    }
+
+    default:
+      cout << __FILE__ << " " << __LINE__ << " -- "
+           << "WARNING -- Unhandled case: argc==" << argc << endl;
+  }
 }
 
 //##############################################################################
@@ -403,7 +466,7 @@ void Rules::display( ostream& o) const
 
 //##############################################################################
 
-bool Player::has_blackjack()
+bool Player::has_blackjack() const
 {
   if( m_num_hands==1 && m_num_cards[0]==2)
   {
@@ -415,7 +478,7 @@ bool Player::has_blackjack()
   return false;
 }
 
-bool Dealer::has_blackjack()
+bool Dealer::has_blackjack() const
 {
   if( m_num_cards==2 && hand_value() == 21)
   {
@@ -426,7 +489,7 @@ bool Dealer::has_blackjack()
 
 //##############################################################################
 
-void Dealer::init( const int round)
+void Dealer::init()
 {
   m_num_cards = 0;
   m_hand_value = 0;
@@ -438,7 +501,7 @@ int Dealer::up_card()
   return m_hand[0];
 }
 
-bool Dealer::should_hit()
+bool Dealer::should_hit() const
 {
   int hand_val = m_hand_value;
 
@@ -480,7 +543,7 @@ void Dealer::dealt( const int next_card)
   }
 }
 
-bool Dealer::busts() const
+bool Dealer::busted() const
 {
   return m_hand_value > 21;
 }
@@ -516,7 +579,7 @@ void Dealer::display_hand( ostream& o) const
 
 //##############################################################################
 
-void Player::init( const int round)
+void Player::init()
 {
   m_hand = 0;
   m_num_hands = 1;
@@ -573,7 +636,7 @@ bool Player::has_lesser_splittable_pairs() const
       || ( m_hands[m_hand][0] == 9 && m_hands[m_hand][1] == 9);
 }
 
-bool Player::should_double_down()
+bool Player::should_double_down() const
 {
   bool val = false;
   if(   ( m_rules.allow_doubling_down())
@@ -586,14 +649,14 @@ bool Player::should_double_down()
   return val;
 }
 
-bool Player::should_hit()
+bool Player::should_hit() const
 {
   int hand_val = m_hand_value[m_hand];
   if( hand_val < 17) { return true;}
   return false;
 }
 
-bool Player::has_unplayed_hands()
+bool Player::has_unplayed_hands() const
 {
   if( m_num_hands_played < m_num_hands)
   {
@@ -627,7 +690,7 @@ int Player::value_of_card( const int card) const
   return card_val;
 }
 
-bool Player::should_split()
+bool Player::should_split() const
 {
   if( m_num_splits<3)
   {
@@ -916,11 +979,11 @@ void Player::dealt( const int next_card)
   }
 }
 
-bool Player::busts() const
+bool Player::busted() const
 {
   return m_hand_value[m_hand]>21;
 }
-bool Player::busts_all_hands() const
+bool Player::busted_all_hands() const
 {
   int i;
   for( i=0; i<m_num_hands; i++)
@@ -1127,7 +1190,7 @@ void Message::after_player_hits() const
     }
     cout << ": ";
     m_player.display_hand(cout);
-    if( m_player.busts())
+    if( m_player.busted())
     {
       cout << " *bust*";
       cout << endl;
@@ -1140,7 +1203,7 @@ void Message::after_player_stands() const
 {
   if( m_show)
   {
-    if( !m_player.busts())
+    if( !m_player.busted())
     {
       cout << "  player stands";
       if( m_player.num_hands()>1)
@@ -1161,7 +1224,7 @@ void Message::after_dealer_hits() const
   {
     cout << "  dealer *hits*: ";
     m_dealer.display_hand(cout);
-    if( m_dealer.busts())
+    if( m_dealer.busted())
     {
       cout << " *bust*";
     }
@@ -1173,7 +1236,7 @@ void Message::after_dealer_stands() const
 {
   if( m_show)
   {
-    if( !m_dealer.busts())
+    if( !m_dealer.busted())
     {
       cout << "  dealer stands: ";
       m_dealer.display_hand(cout);
@@ -1197,11 +1260,11 @@ void Message::at_end_of_round() const
       {
         cout << endl;
         cout << "    hand " << m_player.hand()+1 << " -- ";
-        if( m_player.busts())
+        if( m_player.busted())
         {
           cout << "player lost  (busted)";
         }
-        else if( m_dealer.busts())
+        else if( m_dealer.busted())
         {
           cout << "player won!  (dealer busted)";
         }
@@ -1237,11 +1300,11 @@ void Message::at_end_of_round() const
     else
     {
       cout << endl;
-      if( m_player.busts())
+      if( m_player.busted())
       {
         cout << "    player lost  (busted)";
       }
-      else if( m_dealer.busts())
+      else if( m_dealer.busted())
       {
         cout << "    player won!  (dealer busted)";
       }
@@ -1332,31 +1395,98 @@ void Message::when_dealer_gets_blackjack() const
 
 //##############################################################################
 
-void extract_args( const int argc, const char** argv, int& numRounds)
+bool Scribe::says_to_keep_playing()
 {
-  int n;
-  switch( argc)
-  {
-    case 1: // ./a.exe
-    {
-      break;
-    }
-
-    case 2: // ./a.exe numRounds
-    {
-      n = atoi(argv[1]);
-      if( n) { numRounds = n;}
-
-      break;
-    }
-
-    case 3: // ./a.exe numRounds ----
-    {
-      break;
-    }
-
-    default:
-      cout << __FILE__ << " " << __LINE__ << " -- "
-           << "WARNING -- Unhandled case: argc==" << argc << endl;
-  }
+  return m_round <= m_num_rounds_to_play;
 }
+
+void Scribe::player_busted()
+{
+}
+
+void Scribe::player_won()
+{
+}
+
+void Scribe::player_lost()
+{
+}
+
+void Scribe::push()
+{
+}
+
+void Scribe::player_got_blackjack()
+{
+}
+
+void Scribe::records_results()
+{
+  if( m_player.num_hands() > 1)
+  {
+    for( m_player.first_hand();
+         m_player.has_more_hands();
+         m_player.next_hand() )
+    {
+      if( m_player.busted())
+      {
+        player_busted();
+      }
+      else if( m_dealer.busted())
+      {
+        player_won();
+      }
+      else
+      {
+        if( m_player.hand_value() < m_dealer.hand_value())
+        {
+          player_lost();
+        }
+        else if( m_player.hand_value() > m_dealer.hand_value())
+        {
+          player_won();
+        }
+        else
+        {
+          push();
+        }
+      }
+      m_hand++;
+    }
+  }
+  else
+  {
+    if( m_player.busted())
+    {
+      player_busted();
+    }
+    else if( m_dealer.busted())
+    {
+      player_won();
+    }
+    else
+    {
+      if( m_player.hand_value() < m_dealer.hand_value())
+      {
+        player_lost();
+      }
+      else if( m_player.hand_value() > m_dealer.hand_value())
+      {
+        player_won();
+        if( m_player.has_blackjack())
+        {
+          player_got_blackjack();
+        }
+      }
+      else
+      {
+        push();
+      }
+    }
+    m_hand++;
+  }
+
+  m_round++;
+}
+
+//##############################################################################
