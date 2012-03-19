@@ -5,6 +5,7 @@
 #include <cmath> // Warning: round is redeclared in below scopes.
 #include <string>
 #include <vector>
+#include <fstream>
 using namespace std;
 
 void extract_args( const int argc, const char** argv, int& numRounds);
@@ -76,6 +77,9 @@ public:
 
   void display_hands( ostream& o) const;
   void display_hand( ostream& o) const;
+
+  bool won_hand() const;
+  float wager() const;
 
 private:
 
@@ -174,15 +178,34 @@ public:
   , m_dealer(dealer)
   {
     m_num_rounds_to_play = num_rounds_to_play;
-    m_round = 1;
-    m_hand = 0;
+    m_num_rounds_this_game = 0;
+    m_num_hands_this_game = 0;
+    m_max_hands_in_a_single_game = 0;
+    m_max_rounds_in_a_single_game = 0;
+    m_num_rounds_played = 0;
+
+    m_wins.reserve( 1*m_num_rounds_to_play);
+    m_winnings.reserve( 1*m_num_rounds_to_play);
+    m_hand_counts.reserve( 1*m_num_rounds_to_play);
+
+    m_wins.push_back(0);
+    m_winnings.push_back(0);
+    m_hand_counts.push_back(0);
+
+    m_winnings_this_game = 0.0;
   }
 
-  int round() const { return m_round;}
+  int cur_round() const { return m_num_rounds_this_game+1;}
+  int num_rounds() const { return m_num_rounds_this_game;}
+  int cur_hand() const { return m_num_hands_this_game+1;}
+  int num_hands() const { return m_num_hands_this_game;}
 
   bool says_to_keep_playing();
 
+  void make_more_space_if_necessary();
   void records_results();
+  void summarizes_results_to_stdout();
+  void writes_results_to_matlab_scripts();
 
 private:
 
@@ -191,22 +214,25 @@ private:
   const Player& m_player;
   const Dealer& m_dealer;
 
-  int m_round;
+  int m_num_rounds_this_game;
+  int m_max_rounds_in_a_single_game;
+  int m_num_rounds_played;
   int m_num_rounds_to_play;
 
-  int m_hand;
+  int m_num_hands_this_game;
+  int m_max_hands_in_a_single_game;
 
-  vector<int> wins;
-  vector<float> winnings;
-  vector<int> wins_cumulative;
-  vector<float> winnings_cumulative;
-  vector<int> hand_counts;
+  vector<int> m_wins;
+  vector<float> m_winnings;
+  vector<int> m_hand_counts;
 
   void player_busted();
   void player_won();
   void player_lost();
   void push();
   void player_got_blackjack();
+
+  float m_winnings_this_game;
 
 };
 
@@ -266,9 +292,9 @@ int main( const int argc, const char** argv)
 {
   cout << __FILE__ << " " << __LINE__ << " -- " << "Hello." << endl;
 
-  int num_rounds = 9;
+  int num_rounds_to_play = 9;
 
-  extract_args( argc, argv, num_rounds);
+  extract_args( argc, argv, num_rounds_to_play);
 
   Rules rules;
 
@@ -277,7 +303,7 @@ int main( const int argc, const char** argv)
   Player player(rules);
   Dealer dealer(rules);
 
-  Scribe scribe( rules,shoe,player,dealer, num_rounds);
+  Scribe scribe( rules,shoe,player,dealer, num_rounds_to_play);
 
   Message message( rules,shoe,player,dealer,scribe, /*show*/true);
 
@@ -373,6 +399,9 @@ int main( const int argc, const char** argv)
     }
 
   }
+
+  scribe.summarizes_results_to_stdout();
+  scribe.writes_results_to_matlab_scripts();
 
   cout << endl << __FILE__ << " " << __LINE__ << " -- " << "Good Bye." << endl;
   return 0;
@@ -1037,6 +1066,18 @@ void Player::display_hand( ostream& o) const
   o << ";";
 }
 
+float Player::wager() const
+{
+  // TODO:
+  return 1.0;
+}
+
+bool Player::won_hand() const
+{
+  // TODO
+  return true;
+}
+
 //##############################################################################
 
 void Shoe::reset()
@@ -1122,7 +1163,7 @@ void Message::at_beginning_of_round() const
 {
   if( m_show)
   {
-    cout << endl << "Round " << m_scribe.round() << ":" << endl;
+    cout << endl << "Round " << m_scribe.cur_round() << ":" << endl;
   }
 }
 
@@ -1397,31 +1438,80 @@ void Message::when_dealer_gets_blackjack() const
 
 bool Scribe::says_to_keep_playing()
 {
-  return m_round <= m_num_rounds_to_play;
+  return m_num_rounds_played < m_num_rounds_to_play;
 }
 
 void Scribe::player_busted()
 {
+  m_winnings_this_game -= m_player.wager();
+  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
 }
 
 void Scribe::player_won()
 {
+  m_winnings_this_game += m_player.wager();
+  m_wins[num_hands()]++;
+  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + m_player.wager();
+
 }
 
 void Scribe::player_lost()
 {
+  m_winnings_this_game -= m_player.wager();
+  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
 }
 
 void Scribe::push()
 {
+  m_winnings[num_rounds()] = m_winnings[num_rounds()-1];
 }
 
 void Scribe::player_got_blackjack()
 {
+  m_winnings_this_game += 1.5*m_player.wager();
+  m_wins[num_hands()]++;
+  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + 1.5*m_player.wager();
+}
+
+void Scribe::make_more_space_if_necessary()
+{
+  cout << "m_winnings.size() = " << m_winnings.size()
+       << "; num_hands() = " << num_hands()
+       << "; num_rounds() = " << num_rounds()
+       << endl;
+  if( m_wins.size() < num_hands())
+  {
+    cerr << "BOOM!" << endl;
+    exit(1);
+  }
+  if( m_winnings.size() < num_rounds())
+  {
+    cerr << "BOOM!" << endl;
+    exit(1);
+  }
+  if( m_wins.size() <= num_hands()) { m_wins.push_back(0);}
+  if( m_winnings.size() <= num_rounds()) { m_winnings.push_back(0);}
+  cout << "m_winnings.size() = " << m_winnings.size() << endl;
 }
 
 void Scribe::records_results()
 {
+  m_num_hands_this_game++;
+  m_num_rounds_this_game++;
+  m_num_rounds_played++;
+
+  make_more_space_if_necessary();
+
+  if( m_num_hands_this_game > m_max_hands_in_a_single_game)
+  {
+    m_max_hands_in_a_single_game = m_num_hands_this_game;
+  }
+
+  if( m_num_rounds_this_game > m_max_rounds_in_a_single_game)
+  {
+    m_max_rounds_in_a_single_game = m_num_rounds_this_game;
+  }
+
   if( m_player.num_hands() > 1)
   {
     for( m_player.first_hand();
@@ -1451,7 +1541,6 @@ void Scribe::records_results()
           push();
         }
       }
-      m_hand++;
     }
   }
   else
@@ -1472,10 +1561,13 @@ void Scribe::records_results()
       }
       else if( m_player.hand_value() > m_dealer.hand_value())
       {
-        player_won();
         if( m_player.has_blackjack())
         {
           player_got_blackjack();
+        }
+        else
+        {
+          player_won();
         }
       }
       else
@@ -1483,10 +1575,49 @@ void Scribe::records_results()
         push();
       }
     }
-    m_hand++;
   }
+}
 
-  m_round++;
+void Scribe::summarizes_results_to_stdout()
+{
+  cout << endl;
+  cout << "winnings_this_game = " << m_winnings_this_game << endl;
+}
+
+void Scribe::writes_results_to_matlab_scripts()
+{
+  ofstream fout;
+  fout.open("results.m");
+
+  int i;
+
+  fout << endl;
+
+  fout << "wins = [";
+  for( i=0; i<=m_max_hands_in_a_single_game; i++)
+  {
+    fout << " " << m_wins[i];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(wins);" << endl;
+
+  fout << endl;
+
+  fout << "winnings = [";
+  for( i=0; i<=m_max_rounds_in_a_single_game; i++)
+  {
+    fout << " " << m_winnings[i];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(winnings);" << endl;
+
+  fout << endl;
+
+  fout << "winnings_this_game = " << m_winnings_this_game << endl;
+
+  fout.close();
 }
 
 //##############################################################################
