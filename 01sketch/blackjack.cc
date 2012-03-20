@@ -8,6 +8,9 @@
 #include <fstream>
 using namespace std;
 
+namespace dthorne0_blackjack {
+//##############################################################################
+
 void extract_args( const int argc, const char** argv, int& numRounds);
 
 class Shoe;
@@ -62,6 +65,7 @@ public:
   int num_hands() const { return m_num_hands;}
   int num_cards() const { return m_num_cards[m_hand];}
   int hand() const { return m_hand;}
+  int cur_hand() const { return m_hand;}
   int hand_value() const { return m_hand_value[m_hand];}
 
   void first_hand() const { m_hand = 0;}
@@ -324,10 +328,14 @@ private:
 
 };
 
+}
+
 //##############################################################################
 
 int main( const int argc, const char** argv)
 {
+  using namespace dthorne0_blackjack;
+
   cout << __FILE__ << " " << __LINE__ << " -- " << "Hello." << endl;
 
   int num_rounds_to_play = 9;
@@ -343,7 +351,7 @@ int main( const int argc, const char** argv)
 
   Scribe scribe( rules,shoe,player,dealer, num_rounds_to_play);
 
-  Message message( rules,shoe,player,dealer,scribe, /*show*/false);
+  Message message( rules,shoe,player,dealer,scribe, /*show*/true);
 
   message.before_first_round();
 
@@ -454,6 +462,7 @@ int main( const int argc, const char** argv)
 
 //##############################################################################
 
+namespace dthorne0_blackjack { // args
 void extract_args( const int argc, const char** argv, int& numRounds)
 {
   int n;
@@ -482,7 +491,9 @@ void extract_args( const int argc, const char** argv, int& numRounds)
            << "WARNING -- Unhandled case: argc==" << argc << endl;
   }
 }
+}
 
+namespace dthorne0_blackjack { // Rules
 //##############################################################################
 
 bool Rules::allow_splitting() const
@@ -538,19 +549,10 @@ void Rules::display( ostream& o) const
   o << endl;
 }
 
-//##############################################################################
-
-bool Player::has_blackjack() const
-{
-  if( m_num_hands==1 && m_num_cards[0]==2)
-  {
-    if( hand_value() == 21)
-    {
-      return true;
-    }
-  }
-  return false;
 }
+
+namespace dthorne0_blackjack { // Dealer
+//##############################################################################
 
 bool Dealer::has_blackjack() const
 {
@@ -560,8 +562,6 @@ bool Dealer::has_blackjack() const
   }
   return false;
 }
-
-//##############################################################################
 
 void Dealer::init()
 {
@@ -651,7 +651,22 @@ void Dealer::display_hand( ostream& o) const
   o << "];";
 }
 
+}
+
+namespace dthorne0_blackjack { // Player
 //##############################################################################
+
+bool Player::has_blackjack() const
+{
+  if( m_num_hands==1 && m_num_cards[0]==2)
+  {
+    if( hand_value() == 21)
+    {
+      return true;
+    }
+  }
+  return false;
+}
 
 void Player::init()
 {
@@ -1125,6 +1140,9 @@ float Player::wager() const
   }
 }
 
+}
+
+namespace dthorne0_blackjack { // Shoe
 //##############################################################################
 
 void Shoe::reset()
@@ -1189,6 +1207,9 @@ void Shoe::display( ostream& o) const
   o << endl;
 }
 
+}
+
+namespace dthorne0_blackjack { // Message
 //##############################################################################
 
 void Message::before_first_round() const
@@ -1511,6 +1532,9 @@ void Message::when_dealer_gets_blackjack() const
   }
 }
 
+}
+
+namespace dthorne0_blackjack { // Scribe
 //##############################################################################
 
 bool Scribe::says_to_keep_playing() const
@@ -1548,22 +1572,66 @@ bool Scribe::player_lost_all_their_money() const
 void Scribe::player_busted()
 {
   m_winnings_this_game -= m_player.wager();
-  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+
+  if( m_player.num_hands() > 1)
+  {
+    if( m_player.cur_hand() > 1)
+    {
+      m_winnings[num_rounds()-1] -= m_player.wager();
+    }
+    else
+    {
+      m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+    }
+  }
+  else
+  {
+    m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+  }
 }
 
 void Scribe::player_won()
 {
   m_winnings_this_game += m_player.wager();
   m_wins[num_hands()]++;
-  // TODO: The following does not work for multiple hands (from splitting).
-  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + m_player.wager();
+
+  if( m_player.num_hands() > 1)
+  {
+    if( m_player.cur_hand() > 1)
+    {
+      m_winnings[num_rounds()-1] += m_player.wager();
+    }
+    else
+    {
+      m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + m_player.wager();
+    }
+  }
+  else
+  {
+    m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + m_player.wager();
+  }
 
 }
 
 void Scribe::player_lost()
 {
   m_winnings_this_game -= m_player.wager();
-  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+
+  if( m_player.num_hands() > 1)
+  {
+    if( m_player.cur_hand() > 1)
+    {
+      m_winnings[num_rounds()-1] -= m_player.wager();
+    }
+    else
+    {
+      m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+    }
+  }
+  else
+  {
+    m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+  }
 }
 
 void Scribe::push()
@@ -1731,3 +1799,5 @@ void Scribe::writes_results_to_matlab_scripts()
 }
 
 //##############################################################################
+}
+
