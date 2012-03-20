@@ -53,7 +53,8 @@ public:
     m_base_wager = base_wager;
   }
 
-  void init();
+  void prepares_for_new_game();
+  void prepares_for_new_round();
 
   void places_bet();
 
@@ -80,6 +81,10 @@ public:
   bool has_aces() const;
   bool has_eights() const;
   bool has_lesser_splittable_pairs() const;
+
+  void won();
+  void lost();
+  void got_blackjack();
 
   void is_dealt( const int next_card);
 
@@ -128,7 +133,8 @@ class Dealer
 public:
   Dealer( const Rules& rules) : m_rules(rules) {}
 
-  void init();
+  void prepares_for_new_game();
+  void prepares_for_new_round();
 
   bool has_blackjack() const;
   bool should_hit() const;
@@ -216,12 +222,11 @@ public:
     m_winnings.push_back(m_player.initial_bankroll());
     m_hand_counts.push_back(0);
 
-    m_winnings_this_game = m_player.initial_bankroll();
-
     m_start_a_new_game = true;
   }
 
-  void init();
+  void prepares_for_new_game();
+  void prepares_for_new_round();
 
   int cur_game() const { return m_num_games+1;}
   int num_games() const { return m_num_games;}
@@ -235,13 +240,18 @@ public:
   bool says_to_keep_playing() const;
   bool says_to_start_a_new_game() const;
 
-  void records_results();
+  void prepares_to_record_results();
+  void considers_the_results();
   void summarizes_results_to_stdout();
   void writes_results_to_matlab_scripts();
 
-  float tells_players_current_winnings() const;
+  bool sees_that_player_has_blackjack() const;
 
-  bool player_lost_all_their_money() const;
+  void records_that_the_player_busted();
+  void records_that_the_player_won();
+  void records_that_the_player_lost();
+  void records_a_push();
+  void records_that_the_player_got_blackjack();
 
 private:
 
@@ -264,14 +274,8 @@ private:
   vector<float> m_winnings;
   vector<int> m_hand_counts;
 
-  void player_busted();
-  void player_won();
-  void player_lost();
-  void push();
-  void player_got_blackjack();
+  bool player_lost_all_their_money() const;
   void make_more_space_if_necessary();
-
-  float m_winnings_this_game;
 
   bool m_start_a_new_game;
 
@@ -351,7 +355,7 @@ int main( const int argc, const char** argv)
 
   Scribe scribe( rules,shoe,player,dealer, num_rounds_to_play);
 
-  Message message( rules,shoe,player,dealer,scribe, /*show*/true);
+  Message message( rules,shoe,player,dealer,scribe, /*show*/false);
 
   message.before_first_round();
 
@@ -359,13 +363,16 @@ int main( const int argc, const char** argv)
   {
     if( scribe.says_to_start_a_new_game())
     {
-      scribe.init();
+      player.prepares_for_new_game();
+      dealer.prepares_for_new_game();
+      scribe.prepares_for_new_game();
       message.at_beginning_of_game();
     }
     message.at_beginning_of_round();
 
-    player.init();
-    dealer.init();
+    player.prepares_for_new_round();
+    dealer.prepares_for_new_round();
+    scribe.prepares_for_new_round();
 
     player.places_bet();
 
@@ -438,7 +445,50 @@ int main( const int argc, const char** argv)
 
     }
 
-    scribe.records_results();
+    scribe.prepares_to_record_results();
+
+    for( player.first_hand();
+         player.has_more_hands();
+         player.next_hand() )
+    {
+      if( player.busted())
+      {
+        player.lost();
+        scribe.records_that_the_player_busted();
+      }
+      else if( dealer.busted())
+      {
+        player.won();
+        scribe.records_that_the_player_won();
+      }
+      else
+      {
+        if( player.hand_value() < dealer.hand_value())
+        {
+          player.lost();
+          scribe.records_that_the_player_lost();
+        }
+        else if( player.hand_value() > dealer.hand_value())
+        {
+          if( scribe.sees_that_player_has_blackjack())
+          {
+            player.got_blackjack();
+            scribe.records_that_the_player_got_blackjack();
+          }
+          else
+          {
+            player.won();
+            scribe.records_that_the_player_won();
+          }
+        }
+        else
+        {
+          scribe.records_a_push();
+        }
+      }
+    }
+
+    scribe.considers_the_results();
 
     message.at_end_of_round();
 
@@ -563,7 +613,12 @@ bool Dealer::has_blackjack() const
   return false;
 }
 
-void Dealer::init()
+void Dealer::prepares_for_new_game()
+{
+  // TODO:
+}
+
+void Dealer::prepares_for_new_round()
 {
   m_num_cards = 0;
   m_hand_value = 0;
@@ -668,7 +723,12 @@ bool Player::has_blackjack() const
   return false;
 }
 
-void Player::init()
+void Player::prepares_for_new_game()
+{
+  m_winnings = initial_bankroll();
+}
+
+void Player::prepares_for_new_round()
 {
   m_hand = 0;
   m_num_hands = 1;
@@ -723,6 +783,21 @@ bool Player::has_lesser_splittable_pairs() const
       || ( m_hands[m_hand][0] == 6 && m_hands[m_hand][1] == 6)
       || ( m_hands[m_hand][0] == 7 && m_hands[m_hand][1] == 7)
       || ( m_hands[m_hand][0] == 9 && m_hands[m_hand][1] == 9);
+}
+
+void Player::won()
+{
+  m_winnings += wager();
+}
+
+void Player::lost()
+{
+  m_winnings -= wager();
+}
+
+void Player::got_blackjack()
+{
+  m_winnings += 1.5*wager();
 }
 
 bool Player::should_double_down() const
@@ -1128,8 +1203,6 @@ void Player::display_hand( ostream& o) const
 
 float Player::wager() const
 {
-  // TODO: Implement betting strategy...
-
   if( base_wager() > winnings())
   {
     return winnings();
@@ -1464,9 +1537,7 @@ void Message::at_end_of_round() const
     cout << endl;
     cout << endl;
     cout << "  Winnings: $"
-         << fixed
-         << setprecision(2)
-         << m_scribe.tells_players_current_winnings()
+         << m_player.winnings()
          << endl;
     cout << endl;
     cout << endl;
@@ -1542,16 +1613,20 @@ bool Scribe::says_to_keep_playing() const
   return m_num_rounds_played < m_num_rounds_to_play;
 }
 
-void Scribe::init()
+void Scribe::prepares_for_new_game()
 {
   if( m_start_a_new_game)
   {
     m_num_rounds_this_game = 0;
     m_num_hands_this_game = 0;
-    m_winnings_this_game = m_player.initial_bankroll();
     m_num_games++;
     m_start_a_new_game = false;
   }
+}
+
+void Scribe::prepares_for_new_round()
+{
+  // TODO:
 }
 
 bool Scribe::says_to_start_a_new_game() const
@@ -1559,25 +1634,30 @@ bool Scribe::says_to_start_a_new_game() const
   return m_start_a_new_game;
 }
 
-float Scribe::tells_players_current_winnings() const
+bool Scribe::sees_that_player_has_blackjack() const
 {
-  return m_winnings_this_game;
+  if( m_player.num_hands()==1 && m_player.num_cards()==2)
+  {
+    if( m_player.hand_value() == 21)
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool Scribe::player_lost_all_their_money() const
 {
-  return m_winnings_this_game <= 0.0;
+  return m_player.winnings() <= 0.0;
 }
 
-void Scribe::player_busted()
+void Scribe::records_that_the_player_busted()
 {
-  m_winnings_this_game -= m_player.wager();
-
   if( m_player.num_hands() > 1)
   {
     if( m_player.cur_hand() > 1)
     {
-      m_winnings[num_rounds()-1] -= m_player.wager();
+      m_winnings[num_rounds()] -= m_player.wager();
     }
     else
     {
@@ -1590,16 +1670,16 @@ void Scribe::player_busted()
   }
 }
 
-void Scribe::player_won()
+void Scribe::records_that_the_player_won()
 {
-  m_winnings_this_game += m_player.wager();
   m_wins[num_hands()]++;
+  m_hand_counts[num_hands()]++;
 
   if( m_player.num_hands() > 1)
   {
     if( m_player.cur_hand() > 1)
     {
-      m_winnings[num_rounds()-1] += m_player.wager();
+      m_winnings[num_rounds()] += m_player.wager();
     }
     else
     {
@@ -1613,15 +1693,15 @@ void Scribe::player_won()
 
 }
 
-void Scribe::player_lost()
+void Scribe::records_that_the_player_lost()
 {
-  m_winnings_this_game -= m_player.wager();
+  m_hand_counts[num_hands()]++;
 
   if( m_player.num_hands() > 1)
   {
     if( m_player.cur_hand() > 1)
     {
-      m_winnings[num_rounds()-1] -= m_player.wager();
+      m_winnings[num_rounds()] -= m_player.wager();
     }
     else
     {
@@ -1634,15 +1714,16 @@ void Scribe::player_lost()
   }
 }
 
-void Scribe::push()
+void Scribe::records_a_push()
 {
+  m_hand_counts[num_hands()]++;
   m_winnings[num_rounds()] = m_winnings[num_rounds()-1];
 }
 
-void Scribe::player_got_blackjack()
+void Scribe::records_that_the_player_got_blackjack()
 {
-  m_winnings_this_game += 1.5*m_player.wager();
   m_wins[num_hands()]++;
+  m_hand_counts[num_hands()]++;
   m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + 1.5*m_player.wager();
 }
 
@@ -1657,17 +1738,23 @@ void Scribe::make_more_space_if_necessary()
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
   }
+  if( m_hand_counts.size() < num_hands())
+  {
+    cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+    exit(1);
+  }
   if( m_winnings.size() < num_rounds())
   {
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
   }
   if( m_wins.size() <= num_hands()) { m_wins.push_back(0);}
+  if( m_hand_counts.size() <= num_hands()) { m_hand_counts.push_back(0);}
   if( m_winnings.size() <= num_rounds()) { m_winnings.push_back(0);}
 //cout << "m_winnings.size() = " << m_winnings.size() << endl;
 }
 
-void Scribe::records_results()
+void Scribe::prepares_to_record_results()
 {
   m_num_hands_this_game++;
   m_num_rounds_this_game++;
@@ -1684,77 +1771,14 @@ void Scribe::records_results()
   {
     m_max_rounds_in_a_single_game = m_num_rounds_this_game;
   }
+}
 
-  if( m_player.num_hands() > 1)
-  {
-    for( m_player.first_hand();
-         m_player.has_more_hands();
-         m_player.next_hand() )
-    {
-      if( m_player.busted())
-      {
-        player_busted();
-      }
-      else if( m_dealer.busted())
-      {
-        player_won();
-      }
-      else
-      {
-        if( m_player.hand_value() < m_dealer.hand_value())
-        {
-          player_lost();
-        }
-        else if( m_player.hand_value() > m_dealer.hand_value())
-        {
-          player_won();
-        }
-        else
-        {
-          push();
-        }
-      }
-    }
-  }
-  else
-  {
-    if( m_player.busted())
-    {
-      player_busted();
-    }
-    else if( m_dealer.busted())
-    {
-      player_won();
-    }
-    else
-    {
-      if( m_player.hand_value() < m_dealer.hand_value())
-      {
-        player_lost();
-      }
-      else if( m_player.hand_value() > m_dealer.hand_value())
-      {
-        if( m_player.has_blackjack())
-        {
-          player_got_blackjack();
-        }
-        else
-        {
-          player_won();
-        }
-      }
-      else
-      {
-        push();
-      }
-    }
-  }
-
+void Scribe::considers_the_results()
+{
   if( player_lost_all_their_money())
   {
     m_start_a_new_game = true;
   }
-
 }
 
 void Scribe::summarizes_results_to_stdout()
@@ -1779,6 +1803,7 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(wins);" << endl;
+  fout << "title('wins')" << endl;
 
   fout << endl;
 
@@ -1790,10 +1815,22 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(winnings);" << endl;
+  fout << "title('winnings')" << endl;
 
   fout << endl;
 
-  fout << "winnings_this_game = " << m_winnings_this_game << endl;
+  fout << "hand_counts = [";
+  for( i=0; i<=m_max_hands_in_a_single_game; i++)
+  {
+    fout << " " << m_hand_counts[i];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(hand_counts);" << endl;
+  fout << "title('hand counts')" << endl;
+
+
+  fout << endl;
 
   fout.close();
 }
