@@ -45,6 +45,7 @@ public:
   Player( const Rules& rules
         , const float initial_bankroll=20.0
         , const float base_wager=1.0
+        , const float martingale_factor=2.0
         )
   : m_rules(rules)
   {
@@ -52,6 +53,8 @@ public:
 
     m_initial_bankroll = initial_bankroll;
     m_base_wager = base_wager;
+
+    m_martingale_factor = martingale_factor; // TODO: <-- Martingale betting
   }
 
   void prepares_for_new_game();
@@ -59,10 +62,15 @@ public:
 
   void places_bet();
 
-  bool has_blackjack() const;
-  bool should_split() const;
-  bool should_double_down() const;
   bool should_hit() const;
+
+  bool should_split() const;
+
+  bool can_double_down() const;
+  bool should_double_down() const;
+  void doubles_down();
+  bool has_hard_nine() const;
+  bool has_soft_sixteen_through_eighteen() const;
 
   int num_hands() const { return m_num_hands;}
   int num_cards() const { return m_num_cards[m_hand];}
@@ -79,6 +87,7 @@ public:
 
   int value_of_card( const int card) const;
 
+  bool has_blackjack() const;
   bool has_aces() const;
   bool has_eights() const;
   bool has_lesser_splittable_pairs() const;
@@ -129,6 +138,10 @@ private:
   float m_base_wager;
   float m_initial_bankroll;
   float m_bankroll;
+
+  float m_martingale_factor;
+  float m_martingale_wager;
+  float m_martingale_bankroll;
 
 };
 
@@ -459,9 +472,9 @@ int main( const int argc, const char** argv)
         }
         else
         {
-          if( player.should_double_down())
+          if( player.can_double_down() && player.should_double_down())
           {
-            // TODO:
+            player.doubles_down();
           }
           else
           {
@@ -842,7 +855,7 @@ void Player::got_blackjack()
   m_bankroll += 1.5*wager();
 }
 
-bool Player::should_double_down() const
+bool Player::can_double_down() const
 {
   bool val = false;
   if(   ( m_rules.allow_doubling_down())
@@ -850,9 +863,44 @@ bool Player::should_double_down() const
         ( num_hands()>1 && m_rules.allow_doubling_down_after_splitting())
     )
   {
-  // TODO
+    if( m_bankroll > 2*m_wager)
+    {
+      val = true;
+    }
   }
   return val;
+}
+bool Player::should_double_down() const
+{
+  bool val = false;
+  if(  m_dealer_up_card > 1 && m_dealer_up_card < 7
+    && ( has_hard_nine() || has_soft_sixteen_through_eighteen()))
+  {
+    val = true;
+  }
+  return val;
+}
+
+bool Player::has_hard_nine() const
+{
+  return hand_value()==9;
+}
+
+bool Player::has_soft_sixteen_through_eighteen() const
+{
+  if( m_num_elevens == 0)
+  {
+    if( hand_value()>=16 && hand_value()<=18)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+void Player::doubles_down()
+{
+  m_wager*=2;
 }
 
 bool Player::should_hit() const
@@ -1866,16 +1914,20 @@ void Scribe::considers_the_results()
 
 void Scribe::summarizes_results_to_stdout()
 {
-  cout << "  total games played : " << m_num_games << endl;
-  cout << "  total rounds played: " << m_num_rounds_total << endl;
-  cout << "  total hands played : " << m_num_hands_total << endl;
+  cout << "  total games played : " << setw(12) << m_num_games << endl;
+  cout << "  total rounds played: " << setw(12) << m_num_rounds_total << endl;
+  cout << "  total hands played : " << setw(12) << m_num_hands_total
+       << " (averaging "
+       << (double)m_num_hands_total / m_num_games
+       << " hands per game)"
+       << endl;
   cout << endl;
 
-  cout << "  total hands won    : " << m_num_wins_total << endl;
-  cout << "  total hands lost   : " << m_num_losses_total << endl;
-  cout << "  total hands pushed : " << m_num_pushes_total << endl;
-  cout << "              -----------------------" << endl;
-  cout << "                 sum : "
+  cout << "  total hands won    : " << setw(12) << m_num_wins_total << endl;
+  cout << "  total hands lost   : " << setw(12) << m_num_losses_total << endl;
+  cout << "  total hands pushed : " << setw(12) << m_num_pushes_total << endl;
+  cout << "              ------------------------" << endl;
+  cout << "                 sum : " << setw(12)
        << m_num_wins_total
         + m_num_losses_total
         + m_num_pushes_total
@@ -1893,19 +1945,20 @@ void Scribe::summarizes_results_to_stdout()
   }
 
   cout << endl;
-  cout << "            blackjacks : " << m_num_blackjacks_total << endl;
+  cout << "          blackjacks : " << setw(12) << m_num_blackjacks_total << endl;
 
   cout << endl;
-  cout << "  win ratio      : "
+  cout.width(12);
+  cout << "  win ratio          : "
        << (double)m_num_wins_total / m_num_hands_total
        << endl;
-  cout << "  loss ratio     : "
+  cout << "  loss ratio         : "
        << (double)m_num_losses_total / m_num_hands_total
        << endl;
-  cout << "  push ratio     : "
+  cout << "  push ratio         : "
        << (double)m_num_pushes_total / m_num_hands_total
        << endl;
-  cout << "  blackjack ratio: "
+  cout << "  blackjack ratio    : "
        << (double)m_num_blackjacks_total / m_num_hands_total
        << endl;
 
@@ -1981,6 +2034,7 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "figure;" << endl;
   fout << "plot(win_counts);" << endl;
   fout << "title('win\\_counts')" << endl;
+  fout << "xlabel('hand')" << endl;
 
   fout << endl;
 
@@ -2022,6 +2076,13 @@ void Scribe::writes_results_to_matlab_scripts()
 
   fout << endl;
 
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_counts./bankroll_down_counts);" << endl;
+  fout << "title('bankroll up/down count ratios')" << endl;
+  fout << "xlabel('round')" << endl;
+
+  fout << endl;
+
   fout << "round_counts = [";
   for( i=0; i<=m_max_rounds_in_a_single_game; i++)
   {
@@ -2031,6 +2092,7 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "figure;" << endl;
   fout << "plot(round_counts);" << endl;
   fout << "title('round counts')" << endl;
+  fout << "xlabel('round')" << endl;
 
   fout << endl;
 
@@ -2043,6 +2105,7 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "figure;" << endl;
   fout << "plot(hand_counts);" << endl;
   fout << "title('hand counts')" << endl;
+  fout << "xlabel('hand')" << endl;
 
   fout << endl;
 
@@ -2059,7 +2122,7 @@ void Scribe::writes_results_to_matlab_scripts()
 
   fout << "figure;" << endl;
   fout << "plot(bankroll_cumulative./round_counts);" << endl;
-  fout << "title('bankroll\\_cumulative ratios')" << endl;
+  fout << "title('average bankroll')" << endl;
   fout << "ylabel('bankroll\\_cumulative./round\\_counts')" << endl;
   fout << "xlabel('round')" << endl;
 
@@ -2070,7 +2133,6 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "title('bankroll up ratios')" << endl;
   fout << "ylabel('bankroll\\_up\\_counts./round\\_counts')" << endl;
   fout << "xlabel('round')" << endl;
-
 
   fout << endl;
 
