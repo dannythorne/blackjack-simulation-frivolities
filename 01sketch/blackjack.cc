@@ -101,7 +101,10 @@ public:
   float wager() const;
   float base_wager() const { return m_base_wager;}
   float initial_bankroll() const { return m_initial_bankroll;}
-  float winnings() const { return m_winnings;}
+  float winnings() const { return m_bankroll;}
+
+  bool bankroll_is_up() const { return m_bankroll > m_initial_bankroll;}
+  bool bankroll_is_down() const { return m_bankroll < m_initial_bankroll;}
 
 private:
 
@@ -125,7 +128,7 @@ private:
   float m_wager;
   float m_base_wager;
   float m_initial_bankroll;
-  float m_winnings;
+  float m_bankroll;
 
 };
 
@@ -221,12 +224,16 @@ public:
     m_num_games = -1;
 
     m_win_counts.reserve( 1*m_num_rounds_to_play);
-    m_winnings.reserve( 1*m_num_rounds_to_play);
+    m_bankroll.reserve( 1*m_num_rounds_to_play);
+    m_bankroll_up_counts.reserve( 1*m_num_rounds_to_play);
+    m_bankroll_down_counts.reserve( 1*m_num_rounds_to_play);
     m_hand_counts.reserve( 1*m_num_rounds_to_play);
     m_round_counts.reserve( 1*m_num_rounds_to_play);
 
     m_win_counts.push_back(0);
-    m_winnings.push_back(m_player.initial_bankroll());
+    m_bankroll.push_back(m_player.initial_bankroll());
+    m_bankroll_up_counts.push_back(0);
+    m_bankroll_down_counts.push_back(0);
     m_hand_counts.push_back(0);
     m_round_counts.push_back(0);
 
@@ -285,7 +292,9 @@ private:
   int m_max_hands_in_a_single_game;
 
   vector<int> m_win_counts;
-  vector<float> m_winnings;
+  vector<float> m_bankroll;
+  vector<int> m_bankroll_up_counts;
+  vector<int> m_bankroll_down_counts;
   vector<int> m_hand_counts;
   vector<int> m_round_counts;
 
@@ -758,7 +767,7 @@ bool Player::has_blackjack() const
 
 void Player::prepares_for_new_game()
 {
-  m_winnings = initial_bankroll();
+  m_bankroll = initial_bankroll();
 }
 
 void Player::prepares_for_new_round()
@@ -820,17 +829,17 @@ bool Player::has_lesser_splittable_pairs() const
 
 void Player::won()
 {
-  m_winnings += wager();
+  m_bankroll += wager();
 }
 
 void Player::lost()
 {
-  m_winnings -= wager();
+  m_bankroll -= wager();
 }
 
 void Player::got_blackjack()
 {
-  m_winnings += 1.5*wager();
+  m_bankroll += 1.5*wager();
 }
 
 bool Player::should_double_down() const
@@ -1702,7 +1711,7 @@ void Scribe::make_more_space_if_necessary()
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
   }
-  if( m_winnings.size() < num_rounds())
+  if( m_bankroll.size() < num_rounds())
   {
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
@@ -1711,7 +1720,11 @@ void Scribe::make_more_space_if_necessary()
   if( m_win_counts.size() <= num_hands()) { m_win_counts.push_back(0);}
   if( m_hand_counts.size() <= num_hands()) { m_hand_counts.push_back(0);}
   if( m_round_counts.size() <= num_rounds()) { m_round_counts.push_back(0);}
-  if( m_winnings.size() <= num_rounds()) { m_winnings.push_back(0);}
+  if( m_bankroll.size() <= num_rounds()) { m_bankroll.push_back(0);}
+  if( m_bankroll_up_counts.size() <= num_rounds())
+  { m_bankroll_up_counts.push_back(0);}
+  if( m_bankroll_down_counts.size() <= num_rounds())
+  { m_bankroll_down_counts.push_back(0);}
 
 }
 
@@ -1748,16 +1761,16 @@ void Scribe::records_that_the_player_busted()
   {
     if( m_player.cur_hand() > 1)
     {
-      m_winnings[num_rounds()] -= m_player.wager();
+      m_bankroll[num_rounds()] -= m_player.wager();
     }
     else
     {
-      m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+      m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
     }
   }
   else
   {
-    m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
   }
 }
 
@@ -1774,16 +1787,16 @@ void Scribe::records_that_the_player_won()
   {
     if( m_player.cur_hand() > 1)
     {
-      m_winnings[num_rounds()] += m_player.wager();
+      m_bankroll[num_rounds()] += m_player.wager();
     }
     else
     {
-      m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + m_player.wager();
+      m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + m_player.wager();
     }
   }
   else
   {
-    m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + m_player.wager();
+    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + m_player.wager();
   }
 
 }
@@ -1799,16 +1812,16 @@ void Scribe::records_that_the_player_lost()
   {
     if( m_player.cur_hand() > 1)
     {
-      m_winnings[num_rounds()] -= m_player.wager();
+      m_bankroll[num_rounds()] -= m_player.wager();
     }
     else
     {
-      m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+      m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
     }
   }
   else
   {
-    m_winnings[num_rounds()] = m_winnings[num_rounds()-1] - m_player.wager();
+    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
   }
 }
 
@@ -1819,7 +1832,7 @@ void Scribe::records_a_push()
 
   m_num_pushes_total++;
 
-  m_winnings[num_rounds()] = m_winnings[num_rounds()-1];
+  m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1];
 }
 
 void Scribe::records_that_the_player_got_blackjack()
@@ -1831,11 +1844,20 @@ void Scribe::records_that_the_player_got_blackjack()
   m_hand_counts[num_hands()]++;
   m_num_hands_total++;
 
-  m_winnings[num_rounds()] = m_winnings[num_rounds()-1] + 1.5*m_player.wager();
+  m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + 1.5*m_player.wager();
 }
 
 void Scribe::considers_the_results()
 {
+  if( m_player.bankroll_is_up())
+  {
+    m_bankroll_up_counts[num_rounds()]++;
+  }
+  else if( m_player.bankroll_is_down())
+  {
+    m_bankroll_down_counts[num_rounds()]++;
+  }
+
   if( player_lost_all_their_money())
   {
     m_start_a_new_game = true;
@@ -1844,13 +1866,16 @@ void Scribe::considers_the_results()
 
 void Scribe::summarizes_results_to_stdout()
 {
-  // TODO:
+  cout << "  total games played : " << m_num_games << endl;
+  cout << "  total rounds played: " << m_num_rounds_total << endl;
+  cout << "  total hands played : " << m_num_hands_total << endl;
+  cout << endl;
 
-  cout << "  total hands won   : " << m_num_wins_total << endl;
-  cout << "  total hands lost  : " << m_num_losses_total << endl;
-  cout << "  total hands pushed: " << m_num_pushes_total << endl;
+  cout << "  total hands won    : " << m_num_wins_total << endl;
+  cout << "  total hands lost   : " << m_num_losses_total << endl;
+  cout << "  total hands pushed : " << m_num_pushes_total << endl;
   cout << "              -----------------------" << endl;
-  cout << "                 sum: "
+  cout << "                 sum : "
        << m_num_wins_total
         + m_num_losses_total
         + m_num_pushes_total
@@ -1859,16 +1884,16 @@ void Scribe::summarizes_results_to_stdout()
                          + m_num_losses_total
                          + m_num_pushes_total)
   {
-    cout << "                        |" << endl;
-    cout << "                        |"
+    cout << "                         |" << endl;
+    cout << "                         |"
          << " WARNING: Hand tally does not match win/loss/push tally!"
          << endl;
-    cout << "                        |" << endl;
+    cout << "                         |" << endl;
+    cout << "  total hands played : " << m_num_hands_total << endl;
   }
-  cout << "  total hands played: " << m_num_hands_total << endl;
 
   cout << endl;
-  cout << "  total number of blackjacks: " << m_num_blackjacks_total << endl;
+  cout << "            blackjacks : " << m_num_blackjacks_total << endl;
 
   cout << endl;
   cout << "  win ratio      : "
@@ -1959,15 +1984,41 @@ void Scribe::writes_results_to_matlab_scripts()
 
   fout << endl;
 
-  fout << "winnings = [";
+  fout << "bankroll_cumulative = [";
   for( i=0; i<=m_max_rounds_in_a_single_game; i++)
   {
-    fout << " " << m_winnings[i];
+    fout << " " << m_bankroll[i];
   }
   fout << "];" << endl;
   fout << "figure;" << endl;
-  fout << "plot(winnings);" << endl;
-  fout << "title('winnings')" << endl;
+  fout << "plot(bankroll_cumulative);" << endl;
+  fout << "title('bankroll\\_cumulative')" << endl;
+  fout << "xlabel('round')" << endl;
+
+  fout << endl;
+
+  fout << "bankroll_up_counts = [";
+  for( i=0; i<=m_max_rounds_in_a_single_game; i++)
+  {
+    fout << " " << m_bankroll_up_counts[i];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_counts);" << endl;
+  fout << "title('bankroll up counts')" << endl;
+  fout << "xlabel('round')" << endl;
+  fout << endl;
+
+  fout << "bankroll_down_counts = [";
+  for( i=0; i<=m_max_rounds_in_a_single_game; i++)
+  {
+    fout << " " << m_bankroll_down_counts[i];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_down_counts);" << endl;
+  fout << "title('bankroll down counts')" << endl;
+  fout << "xlabel('round')" << endl;
 
   fout << endl;
 
@@ -2007,10 +2058,19 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << endl;
 
   fout << "figure;" << endl;
-  fout << "plot(winnings./round_counts);" << endl;
-  fout << "title('winnings ratios')" << endl;
-  fout << "ylabel('winnings./round\\_counts')" << endl;
+  fout << "plot(bankroll_cumulative./round_counts);" << endl;
+  fout << "title('bankroll\\_cumulative ratios')" << endl;
+  fout << "ylabel('bankroll\\_cumulative./round\\_counts')" << endl;
   fout << "xlabel('round')" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_counts./round_counts);" << endl;
+  fout << "title('bankroll up ratios')" << endl;
+  fout << "ylabel('bankroll\\_up\\_counts./round\\_counts')" << endl;
+  fout << "xlabel('round')" << endl;
+
 
   fout << endl;
 
