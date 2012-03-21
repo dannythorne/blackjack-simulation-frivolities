@@ -82,6 +82,7 @@ public:
   bool can_double_down() const;
   bool should_double_down() const;
   void doubles_down();
+  bool doubled_down_on_this_hand() const { return m_doubled_down_on_this_hand;}
   bool has_hard_nine() const;
   bool has_soft_sixteen_through_eighteen() const;
 
@@ -135,12 +136,14 @@ public:
   float wager() const;
   float base_wager() const { return m_base_wager;}
   float initial_bankroll() const { return m_initial_bankroll;}
-  float winnings() const { return m_bankroll;}
+  float bankroll() const { return m_bankroll;}
 
   bool lost_last_round() const { return m_lost_last_round;}
 
   bool bankroll_is_up() const { return m_bankroll > m_initial_bankroll;}
   bool bankroll_is_down() const { return m_bankroll < m_initial_bankroll;}
+
+  float winnings_this_round() const { return m_winnings_this_round;}
 
 private:
 
@@ -154,6 +157,7 @@ private:
   int m_hand_value[4];
   int m_num_elevens[4];
   int m_num_aces[4];
+  bool m_doubled_down_on_this_hand[4];
 
   int m_dealer_up_card;
 
@@ -555,8 +559,6 @@ int main( const int argc, const char** argv)
 
     }
 
-    message.at_end_of_round();
-
     scribe.prepares_to_record_results();
 
     for( player.first_hand(); player.has_more_hands(); player.next_hand())
@@ -658,12 +660,12 @@ namespace dthorne0_blackjack { // Rules
 
 bool Rules::allow_splitting() const
 {
-  return false;
+  return true;
 }
 
 bool Rules::allow_splitting_aces() const
 {
-  return false;
+  return true;
 }
 
 bool Rules::allow_doubling_down() const
@@ -759,6 +761,11 @@ void Player::prepares_for_new_round()
   m_num_aces[2] = 0;
   m_num_aces[3] = 0;
 
+  m_doubled_down_on_this_hand[0] = false;
+  m_doubled_down_on_this_hand[1] = false;
+  m_doubled_down_on_this_hand[2] = false;
+  m_doubled_down_on_this_hand[3] = false;
+
   m_num_splits = 0;
   m_num_cards_dealt_since_split[0] = 0;
   m_num_cards_dealt_since_split[1] = 0;
@@ -788,9 +795,9 @@ void Player::places_bet()
     }
   }
 
-  if( m_wager > winnings())
+  if( m_wager > bankroll())
   {
-    m_wager = winnings();
+    m_wager = bankroll();
   }
 }
 
@@ -820,12 +827,22 @@ void Player::won()
 {
   m_bankroll += wager();
   m_winnings_this_round +=  wager();
+  if( m_doubled_down_on_this_hand[m_hand])
+  {
+    m_bankroll += wager();
+    m_winnings_this_round +=  wager();
+  }
 }
 
 void Player::lost()
 {
   m_bankroll -= wager();
   m_winnings_this_round -=  wager();
+  if( m_doubled_down_on_this_hand[m_hand])
+  {
+    m_bankroll -= wager();
+    m_winnings_this_round -=  wager();
+  }
 }
 
 void Player::got_blackjack()
@@ -883,7 +900,7 @@ bool Player::has_soft_sixteen_through_eighteen() const
 
 void Player::doubles_down()
 {
-  m_wager*=2;
+  m_doubled_down_on_this_hand[m_hand] = true;
 }
 
 bool Player::hand_is_soft() const
@@ -1531,7 +1548,7 @@ void Message::before_first_round() const
 
     cout << endl;
     cout << "Notation: ";
-    cout << "{ 0, 1, 2, ..., 9} --> { {10,J,K,Q}, A, 2, ..., 9}" << endl;
+    cout << "{ X, A, 2, ..., 9} --> { {10,J,K,Q}, A, 2, ..., 9}" << endl;
 
     cout << string(72,'=') << endl;
   }
@@ -1541,7 +1558,8 @@ void Message::at_beginning_of_game() const
 {
   if( m_show)
   {
-    cout << endl << " *** Starting game " << m_scribe.cur_game() << " ***"
+    cout << endl
+         << " *** Starting game " << m_scribe.cur_game() << " ***"
          << endl;
   }
 }
@@ -1556,7 +1574,8 @@ void Message::at_beginning_of_round() const
          << ":" << endl;
 
     cout << endl;
-    cout << "  Wager: $" << m_player.wager() << endl;
+    cout << "  Bankroll: $" << m_player.bankroll() << endl;
+    cout << "  Wager   : $" << m_player.wager() << endl;
   }
 }
 
@@ -1580,7 +1599,7 @@ void Message::after_dealer_shows_hole_card() const
 {
   if( m_show)
   {
-    cout << "    dealer       : ";
+    cout << "    dealer        : ";
     m_dealer.display_hand(cout);
     cout << endl;
   }
@@ -1599,7 +1618,7 @@ void Message::after_player_splits() const
     {
       cout << "    player splits       ";
     }
-    cout << ": ";
+    cout << " : ";
     m_player.display_hands(cout);
     cout << endl;
   }
@@ -1622,7 +1641,7 @@ void Message::after_player_hits() const
     {
       cout << " hand " << m_player.hand()+1;
     }
-    cout << ": ";
+    cout << " : ";
     m_player.display_hand(cout);
     if( m_player.busted())
     {
@@ -1644,7 +1663,7 @@ void Message::after_player_stands() const
       {
         cout << " hand " << m_player.hand()+1;
       }
-      cout << ": ";
+      cout << " : ";
       m_player.display_hand(cout);
       cout << endl;
       cout << endl;
@@ -1658,7 +1677,7 @@ void Message::after_player_doubles_down() const
   {
     if( !m_player.busted())
     {
-      cout << "    player doubles ";
+      cout << "    player doubles";
       if( m_player.num_hands()>1)
       {
         cout << " hand " << m_player.hand()+1;
@@ -1675,7 +1694,7 @@ void Message::after_dealer_hits() const
 {
   if( m_show)
   {
-    cout << "    dealer *hits*: ";
+    cout << "    dealer *hits* : ";
     m_dealer.display_hand(cout);
     if( m_dealer.busted())
     {
@@ -1691,7 +1710,7 @@ void Message::after_dealer_stands() const
   {
     if( !m_dealer.busted())
     {
-      cout << "    dealer stands: ";
+      cout << "    dealer stands : ";
       m_dealer.display_hand(cout);
       cout << endl;
     }
@@ -1702,12 +1721,6 @@ void Message::at_end_of_round() const
 {
   if( m_show)
   {
-    cout << endl;
-    cout << endl;
-    cout << "m_hand = " << m_player.hand() << endl;
-    cout << endl;
-    cout << endl;
-
     cout << endl;
     cout << "  Results";
     cout << endl;
@@ -1798,7 +1811,10 @@ void Message::at_end_of_round() const
     cout << endl;
     cout << endl;
     cout << "  Winnings: $"
-         << m_player.winnings()
+         << m_player.winnings_this_round()
+         << endl;
+    cout << "  Bankroll: $"
+         << m_player.bankroll()
          << endl;
     cout << endl;
     cout << endl;
@@ -1909,7 +1925,7 @@ bool Scribe::sees_that_player_has_blackjack() const
 
 bool Scribe::player_is_bankrupt() const
 {
-  return m_player.winnings() <= 0.0;
+  return m_player.bankroll() <= 0.0;
 }
 
 void Scribe::make_more_space_if_necessary()
@@ -1984,20 +2000,24 @@ void Scribe::records_that_the_player_busted()
 
   m_num_losses_total++;
 
+  float w = ((m_player.doubled_down_on_this_hand())?(2.0):(1.0));
+
   if( m_player.num_hands() > 1)
   {
     if( m_player.cur_hand() > 1)
     {
-      m_bankroll[num_rounds()] -= m_player.wager();
+      m_bankroll[num_rounds()] -= w*m_player.wager();
     }
     else
     {
-      m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
+      m_bankroll[num_rounds()]
+        = m_bankroll[num_rounds()-1] - w*m_player.wager();
     }
   }
   else
   {
-    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
+    m_bankroll[num_rounds()]
+      = m_bankroll[num_rounds()-1] - w*m_player.wager();
   }
 }
 
@@ -2010,20 +2030,24 @@ void Scribe::records_that_the_player_won()
 
   m_num_wins_total++;
 
+  float w = ((m_player.doubled_down_on_this_hand())?(2.0):(1.0));
+
   if( m_player.num_hands() > 1)
   {
     if( m_player.cur_hand() > 1)
     {
-      m_bankroll[num_rounds()] += m_player.wager();
+      m_bankroll[num_rounds()] += w*m_player.wager();
     }
     else
     {
-      m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + m_player.wager();
+      m_bankroll[num_rounds()]
+        = m_bankroll[num_rounds()-1] + w*m_player.wager();
     }
   }
   else
   {
-    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + m_player.wager();
+    m_bankroll[num_rounds()]
+      = m_bankroll[num_rounds()-1] + w*m_player.wager();
   }
 }
 
@@ -2034,20 +2058,24 @@ void Scribe::records_that_the_player_lost()
 
   m_num_losses_total++;
 
+  float w = ((m_player.doubled_down_on_this_hand())?(2.0):(1.0));
+
   if( m_player.num_hands() > 1)
   {
     if( m_player.cur_hand() > 1)
     {
-      m_bankroll[num_rounds()] -= m_player.wager();
+      m_bankroll[num_rounds()] -= w*m_player.wager();
     }
     else
     {
-      m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
+      m_bankroll[num_rounds()]
+        = m_bankroll[num_rounds()-1] - w*m_player.wager();
     }
   }
   else
   {
-    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] - m_player.wager();
+    m_bankroll[num_rounds()]
+      = m_bankroll[num_rounds()-1] - w*m_player.wager();
   }
 }
 
