@@ -32,7 +32,7 @@ int main()
   float ave_winnings;
   float ave_positive;
 
-  int n = 8e4;
+  int n = 1e4;
 
   int i;
 
@@ -83,9 +83,9 @@ int main()
 
 void init( BTrial& btrial)
 {
-  btrial.p = 0.48;
-  btrial.pbing = 0.04;
-  btrial.max_trials = 1e2;
+  btrial.p = 0.469;
+  btrial.pbing = 0.0494;
+  btrial.max_trials = 1e3;
   btrial.base_wager = 1;
   btrial.max_wager = 128;
 }
@@ -113,7 +113,11 @@ void play( BTrial& btrial)
     {
       btrial.winnings -= wager;
       wager*=2;
-      if( wager > btrial.max_wager) { wager = btrial.base_wager;}
+      if( wager > btrial.max_wager)
+      {
+        //wager = btrial.base_wager;
+        return;
+      }
     }
   }
 }

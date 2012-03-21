@@ -28,6 +28,7 @@ public:
   bool allow_splitting_aces() const;
   bool allow_doubling_down() const;
   bool allow_doubling_down_after_splitting() const;
+  bool allow_negative_bankroll() const;
   bool say_it_is_time_to_reset_the( const Shoe& shoe) const;
   bool say_dealer_hits_soft_17() const;
   double max_penetration_ratio() const { return m_max_penetration_ratio;}
@@ -43,7 +44,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=1024.0
+        , const float initial_bankroll=40.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
@@ -295,7 +296,8 @@ public:
     m_round_counts.push_back(0);
 
     m_start_a_new_game = true;
-    m_start_new_game_when_player_goes_bankrupt = true;
+    m_start_new_game_when_player_goes_bankrupt
+      = !m_rules.allow_negative_bankroll();
   }
 
   void prepares_for_new_game();
@@ -436,7 +438,7 @@ int main( const int argc, const char** argv)
 
   time_t seed = 0;
 
-  if( /*random seed*/ false)
+  if( /*random seed*/ true)
   {
     seed = time(NULL);
     ofstream seedout;
@@ -447,8 +449,10 @@ int main( const int argc, const char** argv)
   else
   {
     // seed = 1332304270;
-    seed = 1332306416;
-    //seed = 1;
+    // seed = 1332306416;
+    // seed = 1332343989; // Big blackjack in first game.
+    seed = 1332343253; // Big losing streak in first hand (ends at round 399).
+    // seed = 1;
 
   }
 
@@ -470,9 +474,9 @@ int main( const int argc, const char** argv)
 
   Scribe scribe( rules,shoe,player,dealer
                , num_rounds_to_play
-               , /*max_rounds_per_game*/ 1e4);
+               , /*max_rounds_per_game*/ 1e3);
 
-  Message message( rules,shoe,player,dealer,scribe, /*show*/true);
+  Message message( rules,shoe,player,dealer,scribe, /*show*/false);
 
   message.before_first_round();
 
@@ -684,6 +688,11 @@ bool Rules::allow_doubling_down_after_splitting() const
   return true;
 }
 
+bool Rules::allow_negative_bankroll() const
+{
+  return false;
+}
+
 bool Rules::say_it_is_time_to_reset_the( const Shoe& shoe) const
 {
   return shoe.penetration_ratio() >= max_penetration_ratio();
@@ -818,7 +827,7 @@ void Player::places_bet()
     }
   }
 
-  if( m_wager > bankroll())
+  if( !m_rules.allow_negative_bankroll() && m_wager > bankroll())
   {
     m_wager = bankroll();
   }
