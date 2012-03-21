@@ -1,102 +1,174 @@
 
 #include <iostream>
-#include <cstdlib>
 #include <vector>
+#include <cstdlib>
 #include <fstream>
+#include <iomanip>
 using namespace std;
 
-int main()
+int main( int argc, char** argv)
 {
-  float p = 0.469214;
-  float pbing = 0.105522; // simulate occasional blackjack payout
-  int num_trials = 1e9;
+  int max_rounds = 0;
 
-  int max_rounds = 4e3;
+  if( argc > 1)
+  {
+    max_rounds = atoi( argv[1]);
+  }
 
-  float initial_bankroll = 1024;
-  float base_wager = 1;
+  if( !max_rounds)
+  {
+    max_rounds = 3;
+  }
 
-  bool do_martingale = true;
+  const float p = 0.469214;
+  const float q = 1-p;
+  float pgame;
+  float psum;
+  float tol = 1.2e-6;
 
-  float bankroll = initial_bankroll;
-  float wager = base_wager;
+  int num_rounds;
+  vector<int> num_games(max_rounds+1,1);
+
+  const float initial_bankroll = 3;
+  const float base_wager = 1;
+
+  const bool do_martingale = true;
+
+  float bankroll;
+  float wager;
+
+  const bool allow_negative_bankroll = false;
+  bool bankrupt;
 
   vector<int> win_count( max_rounds+1, 0);
   vector<int> bankroll_up_count( max_rounds+1, 0);
   vector<int> bankroll_down_count( max_rounds+1, 0);
   vector<int> round_count( max_rounds+1, 0);
 
-  int trial;
-  int round = 1;
-  int num_rounds = 0;
-  for( trial=0; trial<num_trials; trial++)
+  int game;
+  int round;
+
+  for( num_rounds=1; num_rounds<=max_rounds; num_rounds++)
   {
-    round_count[round]++;
+    num_games[num_rounds] = num_games[num_rounds-1]*2;
 
-    if( (double)rand()/RAND_MAX < p)
+    psum = 0;
+    for( game=0; game<num_games[num_rounds]; game++)
     {
-      // win
-      win_count[round]++;
-      bankroll+=wager;
-      if( (double)rand()/RAND_MAX < pbing)
-      {
-        bankroll+=0.5*wager;
-      }
+      bankroll = initial_bankroll;
       wager = base_wager;
-    }
-    else
-    {
-      // loss
-      bankroll-=wager;
+      pgame = 1;
+      bankrupt = false;
 
-      if( bankroll <= 0)
+      for( round=1; round<=num_rounds; round++)
       {
-        // bankrupt
-        round = 1;
-        wager = base_wager;
-        bankroll = initial_bankroll;
+        round_count[round]++;
+        //
+        // num_rounds       3
+        // num_games: 1 2 4 8
+        // round      0 1 2 3
+        //             -------
+        //              0 0 0 <-- game 0
+        //              0 0 1 <-- game 1
+        //              0 1 0 <-- game 2
+        //              0 1 1 <-- game 3
+        //              1 0 0 <-- game 4
+        //              1 0 1 <-- game 5
+        //              1 1 0 <-- game 6
+        //              1 1 1 <-- game 7
+        //
+        if( game & num_games[num_rounds-round])
+        {
+          // win
+          cout << " 1";
+
+          if( !bankrupt)
+          {
+            win_count[round]++;
+            bankroll+=wager;
+          }
+
+          pgame*=p;
+        }
+        else
+        {
+          // loss
+          cout << " 0";
+
+          if( !bankrupt)
+          {
+            bankroll-=wager;
+
+            if( !allow_negative_bankroll && bankroll <= 0)
+            {
+              bankrupt = true;
+            }
+            else
+            {
+              if( do_martingale)
+              {
+                wager*=2;
+              }
+              if( wager > bankroll)
+              {
+                wager = bankroll;
+              }
+            }
+          }
+          pgame*=q;
+        }
+
+        if( !bankrupt)
+        {
+          if( bankroll > initial_bankroll)
+          {
+            bankroll_up_count[round]++;
+          }
+          else if( bankroll < initial_bankroll)
+          {
+            bankroll_down_count[round]++;
+          }
+        }
+      }
+
+      cout << " -- pgame = " << pgame;
+      if( !bankrupt)
+      {
+        cout << ";  bankroll  $" << bankroll;
+        if( bankroll > initial_bankroll)
+        {
+          cout << " WINNER";
+        }
+        else if( bankroll < initial_bankroll)
+        {
+          //cout << " (down)";
+        }
       }
       else
       {
-        if( do_martingale)
-        {
-          // double wager (Martingale strategy)
-          wager*=2;
-        }
-        if( wager > bankroll)
-        {
-          wager = bankroll;
-        }
+        cout << "; *bankrupt*";
       }
+      cout << endl;
+      psum+=pgame;
+
     }
 
-    if( bankroll > initial_bankroll)
+    cout << endl;
+    if( psum-1.0 >= tol)
     {
-      bankroll_up_count[round]++;
-    }
-    else if( bankroll < initial_bankroll)
-    {
-      bankroll_down_count[round]++;
-    }
-
-    if( round > num_rounds)
-    {
-      num_rounds = round;
-    }
-    round++;
-
-    if( round > max_rounds)
-    {
-      round = 1;
-      wager = base_wager;
-      bankroll = initial_bankroll;
+      cout << "ERROR: "
+           << "psum = "
+           << setprecision(20) << psum
+           << " <-- should be 1"
+           << endl;
     }
   }
+
 
 //------------------------------------------------------------------------------
 
   ofstream fout;
-  fout.open("btrials.m");
+  fout.open("comb.m");
 
   fout << "round_count = [";
   for( round=0; round<num_rounds; round++)
@@ -188,6 +260,8 @@ int main()
   fout << endl;
 
   fout.close();
+
+
 
   return 0;
 }

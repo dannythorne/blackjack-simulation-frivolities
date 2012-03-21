@@ -44,7 +44,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=40.0
+        , const float initial_bankroll=1024.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
@@ -474,7 +474,7 @@ int main( const int argc, const char** argv)
 
   Scribe scribe( rules,shoe,player,dealer
                , num_rounds_to_play
-               , /*max_rounds_per_game*/ 1e3);
+               , /*max_rounds_per_game*/ 4e3);
 
   Message message( rules,shoe,player,dealer,scribe, /*show*/false);
 
