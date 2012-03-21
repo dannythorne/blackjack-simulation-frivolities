@@ -43,7 +43,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=40.0
+        , const float initial_bankroll=1024.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
@@ -59,6 +59,7 @@ public:
     m_is_using_the_martingale_betting_strategy = false;
 
     m_lost_last_round = false;
+    m_broke_even_last_round = false;
   }
 
   void prepares_for_new_game();
@@ -82,7 +83,7 @@ public:
   bool can_double_down() const;
   bool should_double_down() const;
   void doubles_down();
-  bool doubled_down_on_this_hand() const { return m_doubled_down_on_this_hand;}
+  bool doubled_down_on_this_hand() const { return m_doubled_down_on_this_hand[m_hand];}
   bool has_hard_nine() const;
   bool has_soft_sixteen_through_eighteen() const;
 
@@ -139,6 +140,7 @@ public:
   float bankroll() const { return m_bankroll;}
 
   bool lost_last_round() const { return m_lost_last_round;}
+  bool broke_even_last_round() const { return m_broke_even_last_round;}
 
   bool bankroll_is_up() const { return m_bankroll > m_initial_bankroll;}
   bool bankroll_is_down() const { return m_bankroll < m_initial_bankroll;}
@@ -174,7 +176,8 @@ private:
   bool m_is_using_the_martingale_betting_strategy;
   float m_martingale_factor;
 
-  mutable bool m_lost_last_round;
+  bool m_lost_last_round;
+  bool m_broke_even_last_round;
   float m_winnings_this_round;
 
 };
@@ -433,7 +436,7 @@ int main( const int argc, const char** argv)
 
   time_t seed = 0;
 
-  if( /*random seed*/ true)
+  if( /*random seed*/ false)
   {
     seed = time(NULL);
     ofstream seedout;
@@ -443,7 +446,9 @@ int main( const int argc, const char** argv)
   }
   else
   {
-    seed = 1;
+    // seed = 1332304270;
+    seed = 1332306416;
+    //seed = 1;
 
   }
 
@@ -459,15 +464,15 @@ int main( const int argc, const char** argv)
   Shoe shoe;
 
   Player player(rules);
-  //player.should_use_the_martingale_betting_strategy();
+  player.should_use_the_martingale_betting_strategy();
 
   Dealer dealer(rules);
 
   Scribe scribe( rules,shoe,player,dealer
                , num_rounds_to_play
-               , /*max_rounds_per_game*/ 1e5);
+               , /*max_rounds_per_game*/ 1e4);
 
-  Message message( rules,shoe,player,dealer,scribe, /*show*/false);
+  Message message( rules,shoe,player,dealer,scribe, /*show*/true);
 
   message.before_first_round();
 
@@ -480,13 +485,14 @@ int main( const int argc, const char** argv)
       scribe.prepares_for_new_game();
       message.at_beginning_of_game();
     }
-    message.at_beginning_of_round();
 
     player.prepares_for_new_round();
     dealer.prepares_for_new_round();
     scribe.prepares_for_new_round();
 
     player.places_bet();
+
+    message.at_beginning_of_round();
 
     shoe.deals_to( player);
     shoe.deals_to( dealer);
@@ -660,7 +666,7 @@ namespace dthorne0_blackjack { // Rules
 
 bool Rules::allow_splitting() const
 {
-  return true;
+  return false;
 }
 
 bool Rules::allow_splitting_aces() const
@@ -670,7 +676,7 @@ bool Rules::allow_splitting_aces() const
 
 bool Rules::allow_doubling_down() const
 {
-  return true;
+  return false;
 }
 
 bool Rules::allow_doubling_down_after_splitting() const
@@ -733,6 +739,7 @@ void Player::prepares_for_new_game()
   m_bankroll = initial_bankroll();
   m_wager = base_wager();
   m_lost_last_round = false;
+  m_broke_even_last_round = false;;
   m_winnings_this_round =  0.0;
 }
 
@@ -773,9 +780,23 @@ void Player::prepares_for_new_round()
   m_num_cards_dealt_since_split[3] = 0;
 
   m_num_hands_played = 0;
+
   if( m_winnings_this_round < 0.0)
   {
     m_lost_last_round = true;
+    m_broke_even_last_round = false;;
+  }
+  else
+  {
+    if( !( m_winnings_this_round == 0.0 && m_lost_last_round))
+    {
+      m_lost_last_round = false;
+      m_broke_even_last_round = false;;
+    }
+    else
+    {
+      m_broke_even_last_round = true;
+    }
   }
   m_winnings_this_round =  0.0;
 }
@@ -786,8 +807,10 @@ void Player::places_bet()
   {
     if( lost_last_round())
     {
-//cout << "Lost last round, so doubling wager!" << endl;
-      m_wager *= martingale_factor();
+      if( !broke_even_last_round())
+      {
+        m_wager *= martingale_factor();
+      }
     }
     else
     {
@@ -1575,7 +1598,12 @@ void Message::at_beginning_of_round() const
 
     cout << endl;
     cout << "  Bankroll: $" << m_player.bankroll() << endl;
-    cout << "  Wager   : $" << m_player.wager() << endl;
+    cout << "  Wager   : $" << m_player.wager();
+    if( m_player.lost_last_round())
+    {
+      cout << " (lost last round)";
+    }
+    cout << endl;
   }
 }
 
