@@ -43,7 +43,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=20.0
+        , const float initial_bankroll=40.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
@@ -53,17 +53,30 @@ public:
 
     m_initial_bankroll = initial_bankroll;
     m_base_wager = base_wager;
+    m_wager = m_base_wager;
 
     m_martingale_factor = martingale_factor; // TODO: <-- Martingale betting
+    m_is_using_the_martingale_betting_strategy = false;
+
+    m_lost_last_round = false;
   }
 
   void prepares_for_new_game();
   void prepares_for_new_round();
 
+  // Margingale strategy is to double wager after every loss and reset to base
+  // wager after every win.
+  void should_use_the_martingale_betting_strategy()
+  { m_is_using_the_martingale_betting_strategy = true; }
+  bool is_using_the_martingale_betting_strategy() const
+  { return m_is_using_the_martingale_betting_strategy;}
+  float martingale_factor() const { return m_martingale_factor;}
+
   void places_bet();
 
   bool should_hit() const;
 
+  bool can_split() const;
   bool should_split() const;
 
   bool can_double_down() const;
@@ -77,9 +90,21 @@ public:
   int hand() const { return m_hand;}
   int cur_hand() const { return m_hand;}
   int hand_value() const { return m_hand_value[m_hand];}
+  bool hand_is_soft() const;
 
   void first_hand() const { m_hand = 0;}
-  bool has_more_hands() const { return m_hand<m_num_hands;}
+  bool has_more_hands() const
+  {
+    if(m_hand<m_num_hands)
+    {
+      return true;
+    }
+    else
+    {
+      m_hand = 0;
+      return false;
+    }
+  }
   void next_hand() const { m_hand++;}
   bool has_unplayed_hands() const;
 
@@ -112,6 +137,8 @@ public:
   float initial_bankroll() const { return m_initial_bankroll;}
   float winnings() const { return m_bankroll;}
 
+  bool lost_last_round() const { return m_lost_last_round;}
+
   bool bankroll_is_up() const { return m_bankroll > m_initial_bankroll;}
   bool bankroll_is_down() const { return m_bankroll < m_initial_bankroll;}
 
@@ -126,6 +153,7 @@ private:
 
   int m_hand_value[4];
   int m_num_elevens[4];
+  int m_num_aces[4];
 
   int m_dealer_up_card;
 
@@ -139,9 +167,11 @@ private:
   float m_initial_bankroll;
   float m_bankroll;
 
+  bool m_is_using_the_martingale_betting_strategy;
   float m_martingale_factor;
-  float m_martingale_wager;
-  float m_martingale_bankroll;
+
+  mutable bool m_lost_last_round;
+  float m_winnings_this_round;
 
 };
 
@@ -155,6 +185,7 @@ public:
 
   bool has_blackjack() const;
   bool should_hit() const;
+  bool has_soft_17() const;
 
   int up_card();
 
@@ -173,6 +204,7 @@ private:
   int m_num_cards;
   int m_hand_value;
   int m_num_elevens;
+  int m_num_aces;
 
   const Rules& m_rules;
 
@@ -216,6 +248,7 @@ public:
         , const Player& player
         , const Dealer& dealer
         , const int num_rounds_to_play=9
+        , const int max_rounds_per_game=9
         )
   : m_rules(rules)
   , m_shoe(shoe)
@@ -236,21 +269,26 @@ public:
 
     m_num_games = -1;
 
-    m_win_counts.reserve( 1*m_num_rounds_to_play);
-    m_bankroll.reserve( 1*m_num_rounds_to_play);
-    m_bankroll_up_counts.reserve( 1*m_num_rounds_to_play);
-    m_bankroll_down_counts.reserve( 1*m_num_rounds_to_play);
-    m_hand_counts.reserve( 1*m_num_rounds_to_play);
-    m_round_counts.reserve( 1*m_num_rounds_to_play);
+    m_max_rounds_per_game = max_rounds_per_game;
+
+    m_win_counts.reserve( 1+m_max_rounds_per_game);
+    m_bankroll.reserve( 1+m_max_rounds_per_game);
+    m_first_game_bankroll.reserve( 1+m_max_rounds_per_game);
+    m_bankroll_up_counts.reserve( 1+m_max_rounds_per_game);
+    m_bankroll_down_counts.reserve( 1+m_max_rounds_per_game);
+    m_hand_counts.reserve( 1+m_max_rounds_per_game);
+    m_round_counts.reserve( 1+m_max_rounds_per_game);
 
     m_win_counts.push_back(0);
     m_bankroll.push_back(m_player.initial_bankroll());
+    m_first_game_bankroll.push_back(m_player.initial_bankroll());
     m_bankroll_up_counts.push_back(0);
     m_bankroll_down_counts.push_back(0);
     m_hand_counts.push_back(0);
     m_round_counts.push_back(0);
 
     m_start_a_new_game = true;
+    m_start_new_game_when_player_goes_bankrupt = true;
   }
 
   void prepares_for_new_game();
@@ -281,6 +319,10 @@ public:
   void records_a_push();
   void records_that_the_player_got_blackjack();
 
+  bool start_new_game_when_player_goes_bankrupt() const
+  { return m_start_new_game_when_player_goes_bankrupt;}
+  int max_rounds_per_game() const { return m_max_rounds_per_game;}
+
 private:
 
   const Rules& m_rules;
@@ -306,15 +348,19 @@ private:
 
   vector<int> m_win_counts;
   vector<float> m_bankroll;
+  vector<float> m_first_game_bankroll;
   vector<int> m_bankroll_up_counts;
   vector<int> m_bankroll_down_counts;
   vector<int> m_hand_counts;
   vector<int> m_round_counts;
 
-  bool player_lost_all_their_money() const;
+  bool player_is_bankrupt() const;
   void make_more_space_if_necessary();
 
   bool m_start_a_new_game;
+  bool m_start_new_game_when_player_goes_bankrupt;
+
+  int m_max_rounds_per_game;
 
 };
 
@@ -347,6 +393,7 @@ public:
   void after_last_split() const;
   void after_player_hits() const;
   void after_player_stands() const;
+  void after_player_doubles_down() const;
   void after_dealer_hits() const;
   void after_dealer_stands() const;
   void before_shoe_reset() const;
@@ -408,9 +455,13 @@ int main( const int argc, const char** argv)
   Shoe shoe;
 
   Player player(rules);
+  //player.should_use_the_martingale_betting_strategy();
+
   Dealer dealer(rules);
 
-  Scribe scribe( rules,shoe,player,dealer, num_rounds_to_play);
+  Scribe scribe( rules,shoe,player,dealer
+               , num_rounds_to_play
+               , /*max_rounds_per_game*/ 1e5);
 
   Message message( rules,shoe,player,dealer,scribe, /*show*/false);
 
@@ -454,7 +505,7 @@ int main( const int argc, const char** argv)
 
       if( rules.allow_splitting())
       {
-        while( player.should_split())
+        while( player.can_split() && player.should_split())
         {
           player.split();
           shoe.deals_to( player);
@@ -475,6 +526,8 @@ int main( const int argc, const char** argv)
           if( player.can_double_down() && player.should_double_down())
           {
             player.doubles_down();
+            shoe.deals_to( player);
+            message.after_player_doubles_down();
           }
           else
           {
@@ -501,6 +554,8 @@ int main( const int argc, const char** argv)
       }
 
     }
+
+    message.at_end_of_round();
 
     scribe.prepares_to_record_results();
 
@@ -603,12 +658,12 @@ namespace dthorne0_blackjack { // Rules
 
 bool Rules::allow_splitting() const
 {
-  return true;
+  return false;
 }
 
 bool Rules::allow_splitting_aces() const
 {
-  return true;
+  return false;
 }
 
 bool Rules::allow_doubling_down() const
@@ -656,113 +711,6 @@ void Rules::display( ostream& o) const
 
 }
 
-namespace dthorne0_blackjack { // Dealer
-//##############################################################################
-
-bool Dealer::has_blackjack() const
-{
-  if( m_num_cards==2 && hand_value() == 21)
-  {
-    return true;
-  }
-  return false;
-}
-
-void Dealer::prepares_for_new_game()
-{
-  // TODO:
-}
-
-void Dealer::prepares_for_new_round()
-{
-  m_num_cards = 0;
-  m_hand_value = 0;
-  m_num_elevens = 0;
-}
-
-int Dealer::up_card()
-{
-  return m_hand[0];
-}
-
-bool Dealer::should_hit() const
-{
-  int hand_val = m_hand_value;
-
-  if( m_hand_value < 17)
-  {
-    return true;
-  }
-  else if( m_hand_value==17 && m_rules.say_dealer_hits_soft_17())
-  {
-    return true;
-  }
-
-  return false;
-}
-
-void Dealer::is_dealt( const int next_card)
-{
-  m_hand[m_num_cards] = next_card;
-  m_num_cards++;
-
-  if( next_card==0)
-  {
-    m_hand_value += 10;
-  }
-  else if( next_card==1)
-  {
-    m_hand_value += 11;
-    m_num_elevens++;
-  }
-  else
-  {
-    m_hand_value += next_card;
-  }
-
-  while( m_hand_value > 21 && m_num_elevens > 0)
-  {
-    m_hand_value-=10;
-    m_num_elevens--;
-  }
-}
-
-bool Dealer::busted() const
-{
-  return m_hand_value > 21;
-}
-
-void Dealer::display_hand_with_only_up_card_showing( ostream& o) const
-{
-  if( m_num_cards > 2)
-  {
-    cerr << __FILE__ << " " << __LINE__ << " -- "
-         << "ERROR: dealer should only have two cards when hole card is hidden."
-         << endl;
-    exit(1);
-  }
-  int i;
-  o << " ??";
-  o << " [";
-  o << m_hand[0];
-  o << "#";
-  o << "];";
-}
-
-void Dealer::display_hand( ostream& o) const
-{
-  int i;
-  o << " " << setw(2) << m_hand_value;
-  o << " [";
-  for( i=0; i<num_cards(); i++)
-  {
-    o << m_hand[i];
-  }
-  o << "];";
-}
-
-}
-
 namespace dthorne0_blackjack { // Player
 //##############################################################################
 
@@ -781,6 +729,9 @@ bool Player::has_blackjack() const
 void Player::prepares_for_new_game()
 {
   m_bankroll = initial_bankroll();
+  m_wager = base_wager();
+  m_lost_last_round = false;
+  m_winnings_this_round =  0.0;
 }
 
 void Player::prepares_for_new_round()
@@ -803,6 +754,11 @@ void Player::prepares_for_new_round()
   m_num_elevens[2] = 0;
   m_num_elevens[3] = 0;
 
+  m_num_aces[0] = 0;
+  m_num_aces[1] = 0;
+  m_num_aces[2] = 0;
+  m_num_aces[3] = 0;
+
   m_num_splits = 0;
   m_num_cards_dealt_since_split[0] = 0;
   m_num_cards_dealt_since_split[1] = 0;
@@ -810,12 +766,32 @@ void Player::prepares_for_new_round()
   m_num_cards_dealt_since_split[3] = 0;
 
   m_num_hands_played = 0;
-
+  if( m_winnings_this_round < 0.0)
+  {
+    m_lost_last_round = true;
+  }
+  m_winnings_this_round =  0.0;
 }
 
 void Player::places_bet()
 {
-  // TODO:
+  if( is_using_the_martingale_betting_strategy())
+  {
+    if( lost_last_round())
+    {
+//cout << "Lost last round, so doubling wager!" << endl;
+      m_wager *= martingale_factor();
+    }
+    else
+    {
+      m_wager = base_wager();
+    }
+  }
+
+  if( m_wager > winnings())
+  {
+    m_wager = winnings();
+  }
 }
 
 bool Player::has_eights() const
@@ -843,42 +819,49 @@ bool Player::has_lesser_splittable_pairs() const
 void Player::won()
 {
   m_bankroll += wager();
+  m_winnings_this_round +=  wager();
 }
 
 void Player::lost()
 {
   m_bankroll -= wager();
+  m_winnings_this_round -=  wager();
 }
 
 void Player::got_blackjack()
 {
   m_bankroll += 1.5*wager();
+  m_winnings_this_round +=  1.5*wager();
 }
 
 bool Player::can_double_down() const
 {
-  bool val = false;
   if(   ( m_rules.allow_doubling_down())
       ||
         ( num_hands()>1 && m_rules.allow_doubling_down_after_splitting())
     )
   {
-    if( m_bankroll > 2*m_wager)
+    if( m_bankroll >= 2*m_wager)
     {
-      val = true;
+      return true;
     }
   }
-  return val;
+  return false;
 }
+
 bool Player::should_double_down() const
 {
-  bool val = false;
-  if(  m_dealer_up_card > 1 && m_dealer_up_card < 7
+  if(  m_dealer_up_card >= 2 && m_dealer_up_card <=6
     && ( has_hard_nine() || has_soft_sixteen_through_eighteen()))
   {
-    val = true;
+    return true;
   }
-  return val;
+  if( hand_value()==10 || hand_value()==11)
+  {
+    return true;
+  }
+
+  return false;
 }
 
 bool Player::has_hard_nine() const
@@ -888,7 +871,7 @@ bool Player::has_hard_nine() const
 
 bool Player::has_soft_sixteen_through_eighteen() const
 {
-  if( m_num_elevens == 0)
+  if( hand_is_soft())
   {
     if( hand_value()>=16 && hand_value()<=18)
     {
@@ -903,10 +886,54 @@ void Player::doubles_down()
   m_wager*=2;
 }
 
+bool Player::hand_is_soft() const
+{
+  return m_num_aces > 0 && m_num_elevens == 0;
+}
+
 bool Player::should_hit() const
 {
-  int hand_val = m_hand_value[m_hand];
-  if( hand_val < 17) { return true;}
+  if( /*mimic_the_dealer*/false)
+  {
+    if( hand_value() < 17) { return true;}
+  }
+  else
+  {
+    if( m_dealer_up_card>=2 && m_dealer_up_card<=6)
+    {
+      if( hand_is_soft())
+      {
+        if( hand_value()>=13 && hand_value()<=18)
+        {
+          return true;
+        }
+      }
+      else
+      {
+        if( hand_value()>=4 && hand_value()<=11)
+        {
+          return true;
+        }
+      }
+    }
+    else
+    {
+      if( hand_is_soft())
+      {
+        if( hand_value()>=13 && hand_value()<=18)
+        {
+          return true;
+        }
+      }
+      else
+      {
+        if( hand_value()>=4 && hand_value()<=16)
+        {
+          return true;
+        }
+      }
+    }
+  }
   return false;
 }
 
@@ -942,6 +969,19 @@ int Player::value_of_card( const int card) const
   }
 
   return card_val;
+}
+
+bool Player::can_split() const
+{
+  if( m_rules.allow_splitting())
+  {
+    if( m_bankroll >= 2*m_wager)
+    {
+      return true;
+    }
+  }
+  return false;
+
 }
 
 bool Player::should_split() const
@@ -1294,14 +1334,119 @@ void Player::display_hand( ostream& o) const
 
 float Player::wager() const
 {
-  if( base_wager() > winnings())
+  return m_wager;
+}
+
+}
+
+namespace dthorne0_blackjack { // Dealer
+//##############################################################################
+
+bool Dealer::has_blackjack() const
+{
+  if( m_num_cards==2 && hand_value() == 21)
   {
-    return winnings();
+    return true;
+  }
+  return false;
+}
+
+void Dealer::prepares_for_new_game()
+{
+  // TODO:
+}
+
+void Dealer::prepares_for_new_round()
+{
+  m_num_cards = 0;
+  m_hand_value = 0;
+  m_num_elevens = 0;
+  m_num_aces = 0;
+}
+
+int Dealer::up_card()
+{
+  return m_hand[0];
+}
+
+bool Dealer::has_soft_17() const
+{
+  return hand_value()==17 && m_num_aces>0 && m_num_elevens==0;
+}
+
+bool Dealer::should_hit() const
+{
+  if( m_hand_value < 17)
+  {
+    return true;
+  }
+  else if( has_soft_17() && m_rules.say_dealer_hits_soft_17())
+  {
+    return true;
+  }
+
+  return false;
+}
+
+void Dealer::is_dealt( const int next_card)
+{
+  m_hand[m_num_cards] = next_card;
+  m_num_cards++;
+
+  if( next_card==0)
+  {
+    m_hand_value += 10;
+  }
+  else if( next_card==1)
+  {
+    m_hand_value += 11;
+    m_num_aces++;
+    m_num_elevens++;
   }
   else
   {
-    return base_wager();
+    m_hand_value += next_card;
   }
+
+  while( m_hand_value > 21 && m_num_elevens > 0)
+  {
+    m_hand_value-=10;
+    m_num_elevens--;
+  }
+}
+
+bool Dealer::busted() const
+{
+  return m_hand_value > 21;
+}
+
+void Dealer::display_hand_with_only_up_card_showing( ostream& o) const
+{
+  if( m_num_cards > 2)
+  {
+    cerr << __FILE__ << " " << __LINE__ << " -- "
+         << "ERROR: dealer should only have two cards when hole card is hidden."
+         << endl;
+    exit(1);
+  }
+  int i;
+  o << " ??";
+  o << " [";
+  o << m_hand[0];
+  o << "#";
+  o << "];";
+}
+
+void Dealer::display_hand( ostream& o) const
+{
+  int i;
+  o << " " << setw(2) << m_hand_value;
+  o << " [";
+  for( i=0; i<num_cards(); i++)
+  {
+    o << m_hand[i];
+  }
+  o << "];";
 }
 
 }
@@ -1507,6 +1652,25 @@ void Message::after_player_stands() const
   }
 }
 
+void Message::after_player_doubles_down() const
+{
+  if( m_show)
+  {
+    if( !m_player.busted())
+    {
+      cout << "    player doubles ";
+      if( m_player.num_hands()>1)
+      {
+        cout << " hand " << m_player.hand()+1;
+      }
+      cout << ": ";
+      m_player.display_hand(cout);
+      cout << endl;
+      cout << endl;
+    }
+  }
+}
+
 void Message::after_dealer_hits() const
 {
   if( m_show)
@@ -1538,6 +1702,12 @@ void Message::at_end_of_round() const
 {
   if( m_show)
   {
+    cout << endl;
+    cout << endl;
+    cout << "m_hand = " << m_player.hand() << endl;
+    cout << endl;
+    cout << endl;
+
     cout << endl;
     cout << "  Results";
     cout << endl;
@@ -1737,7 +1907,7 @@ bool Scribe::sees_that_player_has_blackjack() const
   return false;
 }
 
-bool Scribe::player_lost_all_their_money() const
+bool Scribe::player_is_bankrupt() const
 {
   return m_player.winnings() <= 0.0;
 }
@@ -1764,13 +1934,22 @@ void Scribe::make_more_space_if_necessary()
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
   }
+  if( cur_game()==1 && m_first_game_bankroll.size() < num_rounds())
+  {
+    cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+    exit(1);
+  }
 
   if( m_win_counts.size() <= num_hands()) { m_win_counts.push_back(0);}
   if( m_hand_counts.size() <= num_hands()) { m_hand_counts.push_back(0);}
   if( m_round_counts.size() <= num_rounds()) { m_round_counts.push_back(0);}
   if( m_bankroll.size() <= num_rounds()) { m_bankroll.push_back(0);}
+  if( cur_game()==1 && m_first_game_bankroll.size() <= num_rounds())
+  { m_first_game_bankroll.push_back(0);}
+
   if( m_bankroll_up_counts.size() <= num_rounds())
   { m_bankroll_up_counts.push_back(0);}
+
   if( m_bankroll_down_counts.size() <= num_rounds())
   { m_bankroll_down_counts.push_back(0);}
 
@@ -1846,7 +2025,6 @@ void Scribe::records_that_the_player_won()
   {
     m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + m_player.wager();
   }
-
 }
 
 void Scribe::records_that_the_player_lost()
@@ -1897,6 +2075,11 @@ void Scribe::records_that_the_player_got_blackjack()
 
 void Scribe::considers_the_results()
 {
+  if( cur_game()==1)
+  {
+    m_first_game_bankroll[num_rounds()] = m_bankroll[num_rounds()];
+  }
+
   if( m_player.bankroll_is_up())
   {
     m_bankroll_up_counts[num_rounds()]++;
@@ -1906,7 +2089,11 @@ void Scribe::considers_the_results()
     m_bankroll_down_counts[num_rounds()]++;
   }
 
-  if( player_lost_all_their_money())
+  if( start_new_game_when_player_goes_bankrupt() && player_is_bankrupt())
+  {
+    m_start_a_new_game = true;
+  }
+  else if( m_num_rounds_this_game > max_rounds_per_game())
   {
     m_start_a_new_game = true;
   }
@@ -2047,6 +2234,19 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "figure;" << endl;
   fout << "plot(bankroll_cumulative);" << endl;
   fout << "title('bankroll\\_cumulative')" << endl;
+  fout << "xlabel('round')" << endl;
+
+  fout << endl;
+
+  fout << "first_game_bankroll = [";
+  for( i=0; i<m_first_game_bankroll.size(); i++)
+  {
+    fout << " " << m_first_game_bankroll[i];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(first_game_bankroll);" << endl;
+  fout << "title('first game bankroll')" << endl;
   fout << "xlabel('round')" << endl;
 
   fout << endl;
