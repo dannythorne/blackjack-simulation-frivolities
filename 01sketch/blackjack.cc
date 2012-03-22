@@ -84,7 +84,9 @@ public:
   bool can_double_down() const;
   bool should_double_down() const;
   void doubles_down();
-  bool doubled_down_on_this_hand() const { return m_doubled_down_on_this_hand[m_hand];}
+  bool doubled_down_on_this_hand() const
+  { return m_doubled_down_on_this_hand[m_hand];}
+
   bool has_hard_nine() const;
   bool has_soft_sixteen_through_eighteen() const;
 
@@ -98,15 +100,8 @@ public:
   void first_hand() const { m_hand = 0;}
   bool has_more_hands() const
   {
-    if(m_hand<m_num_hands)
-    {
-      return true;
-    }
-    else
-    {
-      m_hand = 0;
-      return false;
-    }
+    if(m_hand<m_num_hands) {             return true ;}
+                      else { m_hand = 0; return false;}
   }
   void next_hand() const { m_hand++;}
   bool has_unplayed_hands() const;
@@ -298,6 +293,7 @@ public:
     m_start_a_new_game = true;
     m_start_new_game_when_player_goes_bankrupt
       = !m_rules.allow_negative_bankroll();
+    m_count_pushes = true;
   }
 
   void prepares_for_new_game();
@@ -331,6 +327,8 @@ public:
   bool start_new_game_when_player_goes_bankrupt() const
   { return m_start_new_game_when_player_goes_bankrupt;}
   int max_rounds_per_game() const { return m_max_rounds_per_game;}
+
+  bool nothing_but_pushes_this_round() const;
 
 private:
 
@@ -368,6 +366,9 @@ private:
 
   bool m_start_a_new_game;
   bool m_start_new_game_when_player_goes_bankrupt;
+
+  bool m_count_pushes;
+  int m_num_pushes_this_round;
 
   int m_max_rounds_per_game;
 
@@ -438,7 +439,7 @@ int main( const int argc, const char** argv)
 
   time_t seed = 0;
 
-  if( /*random seed*/ true)
+  if( /*random seed*/ false)
   {
     seed = time(NULL);
     ofstream seedout;
@@ -448,11 +449,13 @@ int main( const int argc, const char** argv)
   }
   else
   {
-    // seed = 1332304270;
-    // seed = 1332306416;
-    // seed = 1332343989; // Big blackjack in first game.
-    seed = 1332343253; // Big losing streak in first hand (ends at round 399).
-    // seed = 1;
+  //seed = 1332304270;
+  //seed = 1332306416;
+  //seed = 1332343989; // Big blackjack in first game.
+  //seed = 1332343253; // Big losing streak in first hand (ends at round 399).
+  //seed = 1332443340;
+  seed = 1332443600;
+  //seed = 1;
 
   }
 
@@ -1969,7 +1972,16 @@ void Scribe::make_more_space_if_necessary()
 {
   if( m_win_counts.size() < num_hands())
   {
-    cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+    cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM:"
+         << " m_win_counts.size() "
+         << m_win_counts.size()
+         << " < "
+         << num_hands()
+         << " num_hands() at round "
+         << m_num_rounds_this_game
+         << " of game "
+         << m_num_games
+         << endl;
     exit(1);
   }
   if( m_hand_counts.size() < num_hands())
@@ -2010,12 +2022,14 @@ void Scribe::make_more_space_if_necessary()
 
 void Scribe::prepares_to_record_results()
 {
-  m_num_hands_this_game++;
+  m_num_hands_this_game+=m_player.num_hands();
 
   m_num_rounds_this_game++;
   m_num_rounds_total++;
 
   m_round_counts[num_rounds()]++;
+
+  m_num_pushes_this_round = 0;
 
   make_more_space_if_necessary();
 
@@ -2041,7 +2055,7 @@ void Scribe::records_that_the_player_busted()
 
   if( m_player.num_hands() > 1)
   {
-    if( m_player.cur_hand() > 1)
+    if( m_player.cur_hand() > 0)
     {
       m_bankroll[num_rounds()] -= w*m_player.wager();
     }
@@ -2071,7 +2085,7 @@ void Scribe::records_that_the_player_won()
 
   if( m_player.num_hands() > 1)
   {
-    if( m_player.cur_hand() > 1)
+    if( m_player.cur_hand() > 0)
     {
       m_bankroll[num_rounds()] += w*m_player.wager();
     }
@@ -2099,7 +2113,7 @@ void Scribe::records_that_the_player_lost()
 
   if( m_player.num_hands() > 1)
   {
-    if( m_player.cur_hand() > 1)
+    if( m_player.cur_hand() > 0)
     {
       m_bankroll[num_rounds()] -= w*m_player.wager();
     }
@@ -2118,12 +2132,25 @@ void Scribe::records_that_the_player_lost()
 
 void Scribe::records_a_push()
 {
-  m_hand_counts[num_hands()]++;
-  m_num_hands_total++;
+  if( m_count_pushes)
+  {
+    m_hand_counts[num_hands()]++;
+    m_num_hands_total++;
+  }
+  else
+  {
+    // Don't count this hand.
+    m_num_hands_this_game--;
+    m_max_hands_in_a_single_game--;
+  }
 
+  m_num_pushes_this_round++;
   m_num_pushes_total++;
 
-  m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1];
+  if( m_count_pushes && m_player.cur_hand() == 0)
+  {
+    m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1];
+  }
 }
 
 void Scribe::records_that_the_player_got_blackjack()
@@ -2135,32 +2162,78 @@ void Scribe::records_that_the_player_got_blackjack()
   m_hand_counts[num_hands()]++;
   m_num_hands_total++;
 
+  // Blackjack implies the player has only one hand this round.
   m_bankroll[num_rounds()] = m_bankroll[num_rounds()-1] + 1.5*m_player.wager();
+}
+
+bool Scribe::nothing_but_pushes_this_round() const
+{
+  return m_num_pushes_this_round == m_player.num_hands();
 }
 
 void Scribe::considers_the_results()
 {
-  if( cur_game()==1)
+  if( nothing_but_pushes_this_round())
   {
-    m_first_game_bankroll[num_rounds()] = m_bankroll[num_rounds()];
-  }
+    // Nothing but pushes this round.
+    if( !m_count_pushes)
+    {
+      // Don't count this round.
+      m_round_counts[num_rounds()]--;
+      m_num_rounds_this_game--;
+      m_num_rounds_total--;
+    }
+    else
+    {
+      if( cur_game()==1)
+      {
+        m_first_game_bankroll[num_rounds()] = m_bankroll[num_rounds()];
+      }
 
-  if( m_player.bankroll_is_up())
-  {
-    m_bankroll_up_counts[num_rounds()]++;
-  }
-  else if( m_player.bankroll_is_down())
-  {
-    m_bankroll_down_counts[num_rounds()]++;
-  }
+      if( m_player.bankroll_is_up())
+      {
+        m_bankroll_up_counts[num_rounds()]++;
+      }
+      else if( m_player.bankroll_is_down())
+      {
+        m_bankroll_down_counts[num_rounds()]++;
+      }
 
-  if( start_new_game_when_player_goes_bankrupt() && player_is_bankrupt())
-  {
-    m_start_a_new_game = true;
+      if( start_new_game_when_player_goes_bankrupt() && player_is_bankrupt())
+      {
+        m_start_a_new_game = true;
+      }
+      else if( m_num_rounds_this_game > max_rounds_per_game())
+      {
+        m_start_a_new_game = true;
+      }
+
+    }
   }
-  else if( m_num_rounds_this_game > max_rounds_per_game())
+  else
   {
-    m_start_a_new_game = true;
+    if( cur_game()==1)
+    {
+      m_first_game_bankroll[num_rounds()] = m_bankroll[num_rounds()];
+    }
+
+    if( m_player.bankroll_is_up())
+    {
+      m_bankroll_up_counts[num_rounds()]++;
+    }
+    else if( m_player.bankroll_is_down())
+    {
+      m_bankroll_down_counts[num_rounds()]++;
+    }
+
+    if( start_new_game_when_player_goes_bankrupt() && player_is_bankrupt())
+    {
+      m_start_a_new_game = true;
+    }
+    else if( m_num_rounds_this_game > max_rounds_per_game())
+    {
+      m_start_a_new_game = true;
+    }
   }
 }
 
@@ -2182,11 +2255,18 @@ void Scribe::summarizes_results_to_stdout()
   cout << "                 sum : " << setw(12)
        << m_num_wins_total
         + m_num_losses_total
-        + m_num_pushes_total
-       << endl;
+        + ((m_count_pushes)?(m_num_pushes_total):(0));
+  if( !m_count_pushes)
+  {
+    cout << " <-- pushes not counted";
+  }
+  cout << endl;
   if( m_num_hands_total != m_num_wins_total
                          + m_num_losses_total
-                         + m_num_pushes_total)
+                         +((m_count_pushes)
+                          ?(m_num_pushes_total)
+                          :(0))
+    )
   {
     cout << "                         |" << endl;
     cout << "                         |"
@@ -2207,24 +2287,35 @@ void Scribe::summarizes_results_to_stdout()
   cout << "  loss ratio         : "
        << (double)m_num_losses_total / m_num_hands_total
        << endl;
-  cout << "  push ratio         : "
-       << (double)m_num_pushes_total / m_num_hands_total
-       << endl;
+  if( m_count_pushes)
+  {
+    cout << "  push ratio         : "
+         << (double)m_num_pushes_total / m_num_hands_total
+         << endl;
+  }
+  else
+  {
+    cout << "   *** PUSHES NOT COUNTED *** " << endl;
+  }
   cout << "  blackjack ratio    : "
        << (double)m_num_blackjacks_total / m_num_hands_total
        << endl;
 
   cout << endl;
-  cout << "  win ratio disregarding pushed hands : "
-       << (double)m_num_wins_total / ( m_num_hands_total - m_num_pushes_total)
-       << endl;
-  cout << "  loss ratio disregarding pushed hands: "
-       << (double)m_num_losses_total / ( m_num_hands_total - m_num_pushes_total)
-       << endl;
-  cout << "  blackjack ratio disregarding pushed : "
-       << (double)   m_num_blackjacks_total
-                 / ( m_num_hands_total - m_num_pushes_total)
-       << endl;
+  if( m_count_pushes)
+  {
+    cout << "  win ratio disregarding pushed hands : "
+         << (double)m_num_wins_total / ( m_num_hands_total - m_num_pushes_total)
+         << endl;
+    cout << "  loss ratio disregarding pushed hands: "
+         << (double)  m_num_losses_total
+                  / ( m_num_hands_total - m_num_pushes_total)
+         << endl;
+    cout << "  blackjack ratio disregarding pushed : "
+         << (double)   m_num_blackjacks_total
+                   / ( m_num_hands_total - m_num_pushes_total)
+         << endl;
+  }
   cout << "  ratio of wins due to blackjack      : "
        << (double)m_num_blackjacks_total / m_num_wins_total
        << endl;
@@ -2243,6 +2334,7 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "num_losses_total = " << m_num_losses_total << endl;
   fout << "num_pushes_total = " << m_num_pushes_total << endl;
   fout << "num_hands_total = " << m_num_hands_total << endl;
+  fout << "num_rounds_total = " << m_num_rounds_total << endl;
   fout << "num_wins_total + num_losses_total + num_pushes_total" << endl;
 
   fout << "num_blackjacks_total = " << m_num_blackjacks_total << endl;
@@ -2358,6 +2450,23 @@ void Scribe::writes_results_to_matlab_scripts()
   fout << "plot(round_counts);" << endl;
   fout << "title('round counts')" << endl;
   fout << "xlabel('round')" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "hold on;" << endl;
+  fout << "plot(round_counts/num_rounds_total);" << endl;
+  fout << "title('round freq dist')" << endl;
+  fout << "xlabel('round')" << endl;
+  fout << "ylabel('round\\_counts/num\\_rounds\\_total')" << endl;
+  fout << "ev = (round_counts/num_rounds_total)*[1:numel(round_counts)]';"
+       << endl;
+  fout << "ylim = get(gca,'ylim');" << endl;
+  fout << "hnd = line( ev*[ 1 1], ylim);" << endl;
+  fout << "set(hnd,'color', 0.5*[ 1 1 1]);" << endl;
+  fout << "hnd=text( ev, ylim(2), sprintf(' mean = %f rounds', ev));" << endl;
+  fout << "set(hnd,'color', 0.3*[ 1 1 1]);" << endl;
+  fout << "set(hnd,'verticalalign','top');" << endl;
 
   fout << endl;
 
