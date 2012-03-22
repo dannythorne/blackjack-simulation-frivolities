@@ -44,7 +44,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=1024.0
+        , const float initial_bankroll=40.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
@@ -56,7 +56,7 @@ public:
     m_base_wager = base_wager;
     m_wager = m_base_wager;
 
-    m_martingale_factor = martingale_factor; // TODO: <-- Martingale betting
+    m_martingale_factor = martingale_factor;
     m_is_using_the_martingale_betting_strategy = false;
 
     m_lost_last_round = false;

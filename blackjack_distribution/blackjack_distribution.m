@@ -18,8 +18,8 @@ end
 pwin_raw = 0.433322; % 0.424249;
 ploss_raw = 0.481628; % 0.490964;
 
-pwin = pwin_raw / ( pwin_raw + ploss_raw);
-ploss = ploss_raw / ( pwin_raw + ploss_raw);
+pwin = 0.469214; %pwin_raw / ( pwin_raw + ploss_raw);
+ploss = 1 - pwin; %ploss_raw / ( pwin_raw + ploss_raw);
 
 if track_losing_streaks
   ratio_losing_streaks = zeros(nmax,max_length_of_losing_streak);

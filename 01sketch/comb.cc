@@ -8,6 +8,8 @@ using namespace std;
 
 int main( int argc, char** argv)
 {
+  bool verbose = false;
+
   int max_rounds = 0;
 
   if( argc > 1)
@@ -29,7 +31,7 @@ int main( int argc, char** argv)
   int num_rounds;
   vector<int> num_games(max_rounds+1,1);
 
-  const float initial_bankroll = 3;
+  const float initial_bankroll = 40;
   const float base_wager = 1;
 
   const bool do_martingale = true;
@@ -44,6 +46,9 @@ int main( int argc, char** argv)
   vector<int> bankroll_up_count( max_rounds+1, 0);
   vector<int> bankroll_down_count( max_rounds+1, 0);
   vector<int> round_count( max_rounds+1, 0);
+  vector<int> winning_game_count( max_rounds+1, 0);
+  vector<float> winning_game_prob( max_rounds+1, 0);
+  vector<float> cumulative_amount_won( max_rounds+1, 0);
 
   int game;
   int round;
@@ -51,6 +56,10 @@ int main( int argc, char** argv)
   for( num_rounds=1; num_rounds<=max_rounds; num_rounds++)
   {
     num_games[num_rounds] = num_games[num_rounds-1]*2;
+
+    cout << "Simulating " << num_games[num_rounds]
+         << " games of " << num_rounds
+         << " rounds." << endl;
 
     psum = 0;
     for( game=0; game<num_games[num_rounds]; game++)
@@ -80,7 +89,7 @@ int main( int argc, char** argv)
         if( game & num_games[num_rounds-round])
         {
           // win
-          cout << " 1";
+          if( verbose) { cout << " 1";}
 
           if( !bankrupt)
           {
@@ -93,7 +102,7 @@ int main( int argc, char** argv)
         else
         {
           // loss
-          cout << " 0";
+          if( verbose) { cout << " 0";}
 
           if( !bankrupt)
           {
@@ -109,7 +118,7 @@ int main( int argc, char** argv)
               {
                 wager*=2;
               }
-              if( wager > bankroll)
+              if( !allow_negative_bankroll && wager > bankroll)
               {
                 wager = bankroll;
               }
@@ -131,13 +140,29 @@ int main( int argc, char** argv)
         }
       }
 
-      cout << " -- pgame = " << pgame;
+      if( verbose)
+      {
+        cout << " -- pgame = " << pgame;
+      }
       if( !bankrupt)
       {
-        cout << ";  bankroll  $" << bankroll;
+        if( verbose)
+        {
+          cout << ";  bankroll  $" << bankroll;
+        }
         if( bankroll > initial_bankroll)
         {
-          cout << " WINNER";
+          if( verbose)
+          {
+            cout << " WINNER";
+          }
+
+          if( bankroll > initial_bankroll)
+          {
+            winning_game_count[num_rounds]++;
+            winning_game_prob[num_rounds]+=pgame;
+            cumulative_amount_won[num_rounds]+=(bankroll-initial_bankroll);
+          }
         }
         else if( bankroll < initial_bankroll)
         {
@@ -146,20 +171,36 @@ int main( int argc, char** argv)
       }
       else
       {
-        cout << "; *bankrupt*";
+        if( verbose)
+        {
+          cout << "; *bankrupt*";
+        }
       }
-      cout << endl;
+      if( verbose)
+      {
+        cout << endl;
+      }
       psum+=pgame;
 
     }
 
-    cout << endl;
-    if( psum-1.0 >= tol)
+    if( verbose)
     {
-      cout << "ERROR: "
+      cout << endl;
+    }
+    if( psum-1.0 >= 1.0/(num_games[num_rounds]-1))
+    {
+      cout << "                             *** "
            << "psum = "
            << setprecision(20) << psum
-           << " <-- should be 1"
+           << " <-- ERROR: psum should be 1"
+           << endl;
+    }
+    else
+    {
+      cout << "                             *** "
+           << "psum = "
+           << setprecision(20) << psum
            << endl;
     }
   }
@@ -171,7 +212,7 @@ int main( int argc, char** argv)
   fout.open("comb.m");
 
   fout << "round_count = [";
-  for( round=0; round<num_rounds; round++)
+  for( round=0; round<max_rounds; round++)
   {
     fout << " " << round_count[round];
   }
@@ -184,7 +225,7 @@ int main( int argc, char** argv)
   fout << endl;
 
   fout << "win_count = [";
-  for( round=0; round<num_rounds; round++)
+  for( round=0; round<max_rounds; round++)
   {
     fout << " " << win_count[round];
   }
@@ -197,7 +238,7 @@ int main( int argc, char** argv)
   fout << endl;
 
   fout << "bankroll_up_count = [";
-  for( round=0; round<num_rounds; round++)
+  for( round=0; round<max_rounds; round++)
   {
     fout << " " << bankroll_up_count[round];
   }
@@ -210,7 +251,7 @@ int main( int argc, char** argv)
   fout << endl;
 
   fout << "bankroll_down_count = [";
-  for( round=0; round<num_rounds; round++)
+  for( round=0; round<max_rounds; round++)
   {
     fout << " " << bankroll_down_count[round];
   }
@@ -219,6 +260,86 @@ int main( int argc, char** argv)
   fout << "plot(bankroll_down_count);" << endl;
   fout << "title('bankroll down count');" << endl;
   fout << "xlabel('round');" << endl;
+
+  fout << endl;
+
+  fout << "winning_game_count = [";
+  for( round=1; round<=max_rounds; round++)
+  {
+    fout << " " << winning_game_count[round];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(winning_game_count);" << endl;
+  fout << "title('winning game count');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+
+  fout << endl;
+
+  fout << "winning_game_prob = [";
+  for( round=1; round<=max_rounds; round++)
+  {
+    fout << " " << winning_game_prob[round];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(winning_game_prob);" << endl;
+  fout << "title('winning game prob');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+
+  fout << endl;
+
+  fout << "cumulative_amount_won = [";
+  for( round=1; round<=max_rounds; round++)
+  {
+    fout << " " << cumulative_amount_won[round];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(cumulative_amount_won);" << endl;
+  fout << "title('cumulative amount won');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+
+  fout << endl;
+
+  fout << "num_games = [";
+  for( round=1; round<=max_rounds; round++)
+  {
+    fout << " " << num_games[round];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(num_games);" << endl;
+  fout << "title('num games');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(winning_game_count./num_games);" << endl;
+  fout << "title('winning game ratios');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+  fout << "ylabel('winning\\_game\\_count./num\\_games');" << endl;
+
+  fout << endl;
+
+  fout << "average_amount_won = cumulative_amount_won./win_count;" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(average_amount_won);" << endl;
+  fout << "title('average\\_amount\\_won');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+  fout << "ylabel('average\\_amount\\_won');" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(average_amount_won.*winning_game_prob);" << endl;
+  fout << "title('average\\_amount\\_won.*winning\\_game\\_prob');" << endl;
+  fout << "xlabel('num rounds');" << endl;
+  fout << "ylabel('average\\_amount\\_won.*winning\\_game\\_prob');" << endl;
 
   fout << endl;
 
