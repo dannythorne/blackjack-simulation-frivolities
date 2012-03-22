@@ -8,12 +8,12 @@ using namespace std;
 int main()
 {
   float p = 0.469214;
-  float pbing = 0.105522; // simulate occasional blackjack payout
+  float pbing = 0.0; // 0.105522; // simulate occasional blackjack payout
   int num_trials = 1e9;
 
   int max_rounds = 4e3;
 
-  float initial_bankroll = 40;
+  float initial_bankroll = 20;
   float base_wager = 1;
 
   bool do_martingale = true;

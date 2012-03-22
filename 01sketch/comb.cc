@@ -31,7 +31,7 @@ int main( int argc, char** argv)
   int num_rounds;
   vector<int> num_games(max_rounds+1,1);
 
-  const float initial_bankroll = 40;
+  const float initial_bankroll = 20;
   const float base_wager = 1;
 
   const bool do_martingale = true;
@@ -95,6 +95,7 @@ int main( int argc, char** argv)
           {
             win_count[round]++;
             bankroll+=wager;
+            wager = base_wager;
           }
 
           pgame*=p;
@@ -124,6 +125,7 @@ int main( int argc, char** argv)
               }
             }
           }
+
           pgame*=q;
         }
 
@@ -272,7 +274,7 @@ int main( int argc, char** argv)
   fout << "figure;" << endl;
   fout << "plot(winning_game_count);" << endl;
   fout << "title('winning game count');" << endl;
-  fout << "xlabel('num rounds');" << endl;
+  fout << "xlabel('length of game (num rounds)');" << endl;
 
   fout << endl;
 
@@ -318,7 +320,7 @@ int main( int argc, char** argv)
   fout << "figure;" << endl;
   fout << "plot(winning_game_count./num_games);" << endl;
   fout << "title('winning game ratios');" << endl;
-  fout << "xlabel('num rounds');" << endl;
+  fout << "xlabel('game length (num rounds)');" << endl;
   fout << "ylabel('winning\\_game\\_count./num\\_games');" << endl;
 
   fout << endl;

@@ -12,6 +12,7 @@ if track_winnings
   average_winnings = zeros(nmax,1);
   average_positive_winnings = zeros(nmax,1);
   ratio_wins = zeros(nmax,1);
+  win_count = zeros(nmax,1);
   weighted_num_wins = zeros(nmax,1);
 end
 
@@ -31,11 +32,11 @@ end
 tic
 t = 0;
 
-for n=1:nmax
+for n=1:nmax % num rounds per game
 
-  m = 2^n; % number of hands to play
+  m = 2^n; % number of rounds to play
 
-  %psum = 0;
+  psum = 0;
   if track_losing_streaks
     ratio_losing_streaks(n,1) = n;
     if track_even_odds_for_comparison
@@ -47,7 +48,7 @@ for n=1:nmax
     positive_winnings_sum = 0;
   end
 
-  for i=1:m
+  for i=1:m % games
     %s = '';
     k = i-1;
     p = 1;
@@ -64,7 +65,7 @@ for n=1:nmax
       winnings = initial_winnings;
     end
 
-    for j=1:n
+    for j=1:n % rounds
       d = mod(k,2);
 
       if d==1 %-----------------------------------------------------------------
@@ -74,12 +75,16 @@ for n=1:nmax
         if track_winnings
           if wager > 0
             winnings = winnings + wager;
+
             if winnings > initial_wager
               wager = initial_wager;
             else
+              error('This should never happen, right?');
               wager = winnings;
             end
-            %disp(sprintf('wager %f of %f',wager,winnings));
+          end
+          if( winnings > 0)
+            win_count(j) = win_count(j) + 1;
           end
         end
         if track_even_odds_for_comparison
@@ -97,17 +102,20 @@ for n=1:nmax
         p = p*ploss;
 
         if track_winnings
+
           winnings = winnings - wager;
+
           if winnings > 0
+
             if winnings > 2*wager
               wager = 2*wager;
             else
               wager = winnings;
             end
-            %disp(sprintf('wager %f of %f',wager,winnings));
+
           else
             wager = 0;
-            %disp(sprintf('wager %f of %f',wager,winnings));
+
             if winnings ~= 0
               error(sprintf('ERROR: Winnings %f went negative!',winnings));
             end
@@ -122,16 +130,13 @@ for n=1:nmax
 
       end %---------------------------------------------------------------------
 
-      %s = sprintf('%d %s',d,s);
       k = floor(k/2);
 
-    end % for j
+    end % for j (rounds)
 
-    %disp(sprintf('%s %f',s,p));
-    %psum = psum + p;
+    psum = psum + p;
 
     if track_winnings
-      %disp(sprintf('winnings = %d',winnings));
 
       average_winnings(n) = average_winnings(n) + winnings*p;
 
@@ -140,7 +145,6 @@ for n=1:nmax
         weighted_num_wins(n) = weighted_num_wins(n) + p;
         positive_winnings_sum = positive_winnings_sum + winnings;
       end
-      %disp(sprintf('average_winnings(n) = %d',average_winnings(n)));
     end
 
     if track_losing_streaks
@@ -163,9 +167,9 @@ for n=1:nmax
       end
     end
 
-  end % for i
+  end % for i (games)
 
-  %disp(psum);
+  disp(sprintf('psum = %f',psum));
   if track_losing_streaks
     disp(sprintf('%f ', ratio_losing_streaks(n,:)));
   else
@@ -187,13 +191,13 @@ for n=1:nmax
   disp('------------');
   t = tnext;
 
-end % for n
+end % for n (num rounds per game)
 
 if track_losing_streaks
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   figure;
   set(gcf,'position',[ 2 278 560 420]);
-  title(sprintf('Blackjack, P(win hand)=%f, P(lose hand)=%f',pwin,ploss));
+  title(sprintf('Blackjack, P(win round)=%f, P(lose round)=%f',pwin,ploss));
   hold on;
   for i=2:max_length_of_losing_streak
     x = find(ratio_losing_streaks(:,i)>0);
@@ -202,9 +206,9 @@ if track_losing_streaks
       (1-(i-2)/(max_length_of_losing_streak-2))*[ 0 0 1] ...
     + ((i-2)/(max_length_of_losing_streak-2))*[ 1 0 0] ...
     );
-    c{i-1} = sprintf('P(at least %d hand losing streak)',i);
+    c{i-1} = sprintf('P(at least %d round losing streak)',i);
   end
-  xlabel('number of hands');
+  xlabel('number of rounds');
 
   if track_even_odds_for_comparison
     for i=2:max_length_of_losing_streak
@@ -253,7 +257,7 @@ if track_winnings
   set(hnd,'color', 0.5*[ 1 1 1]);
   hnd=plot(ratio_wins);
   title(sprintf('ratio of wins, initial amount=%d, base wager=%d',initial_winnings,initial_wager));
-  xlabel('number of hands');
+  xlabel('number of rounds');
   set(gca,'ylim',[ min(.5,min(ratio_wins)) 1]);
   filename = sprintf('ratio_of_wins_nmax_%d_initial_amount_%d_base_wager_%d.png',nmax,initial_winnings,initial_wager);
   disp(sprintf('Writing file \"%s\".',filename));
@@ -274,5 +278,14 @@ if track_winnings
   filename = sprintf('average_winnings_nmax_%d_initial_amount_%d_base_wager_%d.png',nmax,initial_winnings,initial_wager);
   disp(sprintf('Writing file \"%s\".',filename));
   print(filename,'-dpng','-r128');
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  figure;
+  hold on;
+  plot(win_count);
+  title('win count');
+  xlabel('num rounds');
+
 end
 

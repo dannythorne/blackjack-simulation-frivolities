@@ -44,7 +44,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=40.0
+        , const float initial_bankroll=20.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
