@@ -439,7 +439,7 @@ int main( const int argc, const char** argv)
 
   time_t seed = 0;
 
-  if( /*random seed*/ false)
+  if( /*random seed*/ true)
   {
     seed = time(NULL);
     ofstream seedout;
@@ -479,7 +479,7 @@ int main( const int argc, const char** argv)
                , num_rounds_to_play
                , /*max_rounds_per_game*/ 4e3);
 
-  Message message( rules,shoe,player,dealer,scribe, /*show*/false);
+  Message message( rules,shoe,player,dealer,scribe, /*show*/ false);
 
   message.before_first_round();
 
@@ -673,7 +673,7 @@ namespace dthorne0_blackjack { // Rules
 
 bool Rules::allow_splitting() const
 {
-  return false;
+  return true;
 }
 
 bool Rules::allow_splitting_aces() const
@@ -683,7 +683,7 @@ bool Rules::allow_splitting_aces() const
 
 bool Rules::allow_doubling_down() const
 {
-  return false;
+  return true;
 }
 
 bool Rules::allow_doubling_down_after_splitting() const
@@ -1970,6 +1970,76 @@ bool Scribe::player_is_bankrupt() const
 
 void Scribe::make_more_space_if_necessary()
 {
+  while( m_win_counts.size() <= num_hands()+4)
+  {
+    if( m_win_counts.size() == m_win_counts.max_size())
+    {
+      cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+      exit(1);
+    }
+    m_win_counts.push_back(0);
+  }
+  while( m_hand_counts.size() <= num_hands()+4)
+  {
+    if( m_hand_counts.size() == m_hand_counts.max_size())
+    {
+      cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+      exit(1);
+    }
+    m_hand_counts.push_back(0);
+  }
+  while( m_round_counts.size() <= num_rounds()+1)
+  {
+    if( m_round_counts.size() == m_round_counts.max_size())
+    {
+      cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+      exit(1);
+    }
+    m_round_counts.push_back(0);
+  }
+  while( m_bankroll.size() <= num_rounds()+1)
+  {
+    if( m_bankroll.size() == m_bankroll.max_size())
+    {
+      cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+      exit(1);
+    }
+    m_bankroll.push_back(0);
+  }
+
+  if( cur_game()==1)
+  {
+    while( m_first_game_bankroll.size() <= num_rounds()+1)
+    {
+      if( m_first_game_bankroll.size() == m_first_game_bankroll.max_size())
+      {
+        cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+        exit(1);
+      }
+      m_first_game_bankroll.push_back(0);
+    }
+  }
+
+  while( m_bankroll_up_counts.size() <= num_rounds()+1)
+  {
+    if( m_bankroll_up_counts.size() == m_bankroll_up_counts.max_size())
+    {
+      cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+      exit(1);
+    }
+    m_bankroll_up_counts.push_back(0);
+  }
+
+  while( m_bankroll_down_counts.size() <= num_rounds()+1)
+  {
+    if( m_bankroll_down_counts.size() == m_bankroll_down_counts.max_size())
+    {
+      cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+      exit(1);
+    }
+    m_bankroll_down_counts.push_back(0);
+  }
+
   if( m_win_counts.size() < num_hands())
   {
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM:"
@@ -1989,7 +2059,7 @@ void Scribe::make_more_space_if_necessary()
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
   }
-  if( m_round_counts.size() < num_hands())
+  if( m_round_counts.size() < num_rounds())
   {
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
@@ -2004,19 +2074,16 @@ void Scribe::make_more_space_if_necessary()
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
   }
-
-  if( m_win_counts.size() <= num_hands()) { m_win_counts.push_back(0);}
-  if( m_hand_counts.size() <= num_hands()) { m_hand_counts.push_back(0);}
-  if( m_round_counts.size() <= num_rounds()) { m_round_counts.push_back(0);}
-  if( m_bankroll.size() <= num_rounds()) { m_bankroll.push_back(0);}
-  if( cur_game()==1 && m_first_game_bankroll.size() <= num_rounds())
-  { m_first_game_bankroll.push_back(0);}
-
-  if( m_bankroll_up_counts.size() <= num_rounds())
-  { m_bankroll_up_counts.push_back(0);}
-
-  if( m_bankroll_down_counts.size() <= num_rounds())
-  { m_bankroll_down_counts.push_back(0);}
+  if( m_bankroll_up_counts.size() < num_rounds())
+  {
+    cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+    exit(1);
+  }
+  if( m_bankroll_down_counts.size() < num_rounds())
+  {
+    cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
+    exit(1);
+  }
 
 }
 
