@@ -9,6 +9,7 @@ using namespace std;
 int main( int argc, char** argv)
 {
   bool verbose = false;
+  bool check_psum = false;
 
   int max_rounds = 0;
 
@@ -89,7 +90,14 @@ int main( int argc, char** argv)
         if( game & num_games[num_rounds-round])
         {
           // win
-          if( verbose) { cout << " 1";}
+          if( verbose)
+          {
+            if( round==1)
+            {
+              cout << string( 2*(max_rounds - num_rounds), ' ');
+            }
+            cout << " 1";
+          }
 
           if( !bankrupt)
           {
@@ -103,7 +111,14 @@ int main( int argc, char** argv)
         else
         {
           // loss
-          if( verbose) { cout << " 0";}
+          if( verbose)
+          {
+            if( round==1)
+            {
+              cout << string( 2*(max_rounds - num_rounds), ' ');
+            }
+            cout << " 0";
+          }
 
           if( !bankrupt)
           {
@@ -144,19 +159,20 @@ int main( int argc, char** argv)
 
       if( verbose)
       {
-        cout << " -- pgame = " << pgame;
+        cout << " -- pgame = " << setw(10) << left << pgame;
       }
       if( !bankrupt)
       {
         if( verbose)
         {
-          cout << ";  bankroll  $" << bankroll;
+          cout << ";  bankroll  $" << setw(3) << right << bankroll;
         }
         if( bankroll > initial_bankroll)
         {
           if( verbose)
           {
-            cout << " WINNER";
+            cout << " <-- winning game (up $"
+                 << bankroll-initial_bankroll << ")";
           }
 
           if( bankroll > initial_bankroll)
@@ -188,22 +204,32 @@ int main( int argc, char** argv)
 
     if( verbose)
     {
+      cout << "  Number of winning games: "
+           << winning_game_count[num_rounds]
+           << " (ratio "
+           << (double)winning_game_count[num_rounds] / num_games[num_rounds]
+           << ")"
+           << endl;
       cout << endl;
     }
-    if( psum-1.0 >= 1.0/(num_games[num_rounds]-1))
+
+    if( check_psum)
     {
-      cout << "                             *** "
-           << "psum = "
-           << setprecision(20) << psum
-           << " <-- ERROR: psum should be 1"
-           << endl;
-    }
-    else
-    {
-      cout << "                             *** "
-           << "psum = "
-           << setprecision(20) << psum
-           << endl;
+      if( psum-1.0 >= 1.0/(num_games[num_rounds]-1))
+      {
+        cout << "                             *** "
+             << "psum = "
+             << psum
+             << " <-- ERROR: psum should be 1"
+             << endl;
+      }
+      else
+      {
+        cout << "                             *** "
+             << "psum = "
+             << psum
+             << endl;
+      }
     }
   }
 
@@ -322,6 +348,14 @@ int main( int argc, char** argv)
   fout << "title('winning game ratios');" << endl;
   fout << "xlabel('game length (num rounds)');" << endl;
   fout << "ylabel('winning\\_game\\_count./num\\_games');" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(winning_game_prob./num_games);" << endl;
+  fout << "title('winning game prob ratios');" << endl;
+  fout << "xlabel('game length (num rounds)');" << endl;
+  fout << "ylabel('winning\\_game\\_prob./num\\_games');" << endl;
 
   fout << endl;
 
