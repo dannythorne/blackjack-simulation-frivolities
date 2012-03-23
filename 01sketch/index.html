@@ -7,6 +7,8 @@ body
 {
   padding-top:1024px;
   padding-bottom:1024px;
+  padding-left:0.5in;
+  padding-right:0.5in;
   color:#333333;
 }
 .slide
@@ -16,18 +18,26 @@ body
   color:#333333;
   height:1024px;
   width:100%;
-  text-align:center;
   border:solid 0px #ff0000;
+  text-align:center;
+}
+.caption_left
+{
+  font-family:times;
+  font-size:18pt;
+  color:#333333;
+  border:solid 0px #ff00ff;
+  text-align:left;
 }
 .caption
 {
   font-family:times;
   font-size:18pt;
   color:#333333;
-  text-align:center;
   position:relative;
   top:-0.25in;
   border:solid 0px #ff00ff;
+  text-align:center;
 }
 pre
 {
@@ -45,6 +55,10 @@ pre
   color:#990000;
   font-weight:bold;
 }
+dd
+{
+  margin-top:0.5em;
+}
 </style>
 </head>
 <body>
@@ -53,13 +67,69 @@ pre
 Blackjack
 <br/>
 <br/>
-<div class="caption">
-<a href="./png/example_game.txt">example game</a>
+<div class="caption_left">
+<dl>
+<dt>
+Player vs Dealer
+</dt>
+  <dd>
+  closest to &lt;= 21 wins (starting with 2 cards each -- only one of dealer's cards showing)
+  </dd>
+  <dd>
+  cards 2 through 9 count as 2 through 9 points
+  </dd>
+  <dd>
+  cards 10, J, Q, K all count as 10 points
+  </dd>
+  <dd>
+  ace counts as either 11 points or 1 point
+  </dd>
+  <dd>
+  a hand that is &lt;21 with an ace=11 is called "soft"
+  </dd>
+  <dd>
+  21 is called "blackjack" and pays 1.5 &times; wager
+  </dd>
+  <dd>
+  a tie is called a "push"
+  </dd>
+  <dd>
+  "hit" means take another card
+  </dd>
+  <dd>
+  "stand" means take no more cards
+  </dd>
+  <dd>
+  dealer always hits &lt;17 (soft 17, too, in some cases)
+  </dd>
+  <dd>
+  dealer always stands on &gt;=17 (except soft 17, in some cases)
+  </dd>
+  <dd>
+  player can (sometimes) double their wager after seeing their first two cards and dealer's up card
+  </dd>
+  <dd>
+  player can (sometimes) split pairs (and get dealt an additional card for
+  each) usually up to no more than four hands
+  </dd>
+  <dd>
+  player should play according to "basic strategy" (based on player's cards and dealer's up card,
+  make the plays that maximize the expected value of payout)
+  </dd>
+  <dd>
+    <a href="./png/example_game.txt">example game</a>
+  </dd>
+</dl>
 </div>
 </div>
 
 <div class="slide">
-Can you win?
+Can the player win?
+<br/>
+<br/>
+<div class="caption">
+What does that question mean?
+</div>
 </div>
 
 <div class="slide">
@@ -131,7 +201,10 @@ No.
 You "almost surely" cannot win in the long run.
 <br/>
 <br/>
-Expected winnings per hand is something like -$0.005 per dollar (depending on rule variations).
+Expected winnings per hand is something like -$0.005 per dollar, depending on rule variations.
+<br/>
+<br/>
+(At about 100 hands per hour and $5 minimum wagers, this costs the player about $2.50 per hour.)
 </div>
 </div>
 
@@ -162,12 +235,12 @@ Double your wager after each loss.
 <br/>
 Geometric sums!
 <br/>
-Payoff from nth wager: 2<sup>n+1</sup>
+Payoff from <i>n</i><sup>th</sup> wager: 2<sup><i>n</i>+1</sup>
 <br/>
-Sum of wagers: 2<sup>n+1</sup> &minus; 1
+Sum of wagers: 2<sup><i>n</i>+1</sup> &minus; 1
 <br/>
 <br/>
-So you always come out ahead $1 eventually.
+So you always come out ahead $1 eventually. (Right?)
 </div>
 </div>
 
@@ -314,6 +387,10 @@ I started playing around and found that it is even more interesting when the ini
 
 <div class="slide">
 <img src="./png/09_comb_win_ratios.png"/>
+<div class="caption">
+<br/>
+initial bankroll $20; base wager $1 (analogous to $200 and $5)
+</div>
 </div>
 
 <div class="slide">
@@ -328,8 +405,34 @@ With flat betting (i.e., non-Martingale), it is better to play an odd number of 
 </div>
 
 <div class="slide">
+Slow
 <div class="caption">
-asdf
+<br/>
+exhaustive enumeration is slow
+<br/>
+<br/>
+about 1.2(2<sup><i>n</i></sup>) seconds on my MacBook (up to games of length <i>n</i> rounds)
+<br/>
+<br/>
+20 minutes for <i>n</i> = 30
+<br/>
+4 days for <i>n</i> = 40
+<br/>
+1 millenium for <i>n</i> = 50
+<br/>
+<br/>
+I wanted results for <i>n</i> = 100, 1000, ...
+<br/>
+<br/>
+...so I accumulated similar data from my blackjack simulator.
+<br/>
+<br/>
+</div>
+</div>
+
+
+<div class="slide">
+<div class="caption">
 </div>
 <img src="./png/11_bank_up_count.png"/>
 <div class="caption">
@@ -339,7 +442,6 @@ Count of times that bankroll was up for games of each length that were played du
 
 <div class="slide">
 <div class="caption">
-asdf
 </div>
 <img src="./png/12_round_count.png"/>
 <div class="caption">
@@ -350,7 +452,6 @@ Count of games of each length that were played during the simulation.
 
 <div class="slide">
 <div class="caption">
-asdf
 </div>
 <img src="./png/13_bank_up_to_round_ratio.png"/>
 <div class="caption">
@@ -361,7 +462,7 @@ Ratio of number of games of each length with bankroll up to total number of game
 
 <div class="slide">
 <div class="caption">
-asdf
+Same results but only up to games of 300 hands...
 </div>
 <img src="./png/14_bank_up_count.png"/>
 <div class="caption">
@@ -371,7 +472,6 @@ Count of times that bankroll was up for games of each length that were played du
 
 <div class="slide">
 <div class="caption">
-asdf
 </div>
 <img src="./png/15_round_count.png"/>
 <div class="caption">
@@ -382,7 +482,6 @@ Count of games of each length that were played during the simulation.
 
 <div class="slide">
 <div class="caption">
-asdf
 </div>
 <img src="./png/16_bank_up_to_round_ratio.png"/>
 <div class="caption">
@@ -401,6 +500,17 @@ Ratio of times the bankroll is up to times it is down for games of each length.
 </div>
 </div>
 
+<div class="slide">
+Simulate the simulation...
+<br/>
+<br/>
+<div class="caption">
+It is even faster to take the probability of winning a hand and run sequences of Bernoulli trials.
+<br/>
+<br/>
+And it may be interesting to compare the results with the blackjack simulation results.
+</div>
+</div>
 
 <div class="slide">
 <div class="caption">

@@ -43,6 +43,8 @@ int main( int argc, char** argv)
   vector<int> win_count( max_rounds+1, 0);
   vector<int> bankroll_up_count( max_rounds+1, 0);
   vector<int> bankroll_down_count( max_rounds+1, 0);
+  vector<int> bankroll_up_amounts( max_rounds+1, 0);
+  vector<int> bankroll_down_amounts( max_rounds+1, 0);
   vector<int> round_count( max_rounds+1, 0);
   vector<int> bankroll_cumulative( max_rounds+1, 0);
   vector<int> bankroll_first_game( max_rounds+1, 0);
@@ -124,10 +126,12 @@ int main( int argc, char** argv)
     if( bankroll > initial_bankroll)
     {
       bankroll_up_count[round]++;
+      bankroll_up_amounts[round]+=bankroll;
     }
     else if( bankroll < initial_bankroll)
     {
       bankroll_down_count[round]++;
+      bankroll_down_amounts[round]+=bankroll;
     }
 
     if( round > num_rounds)
@@ -221,6 +225,49 @@ int main( int argc, char** argv)
 
   fout << endl;
 
+  fout << "bankroll_up_amounts = [";
+  for( round=0; round<num_rounds; round++)
+  {
+    fout << " " << bankroll_up_amounts[round];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_amounts);" << endl;
+  fout << "title('btrials: bankroll up amounts');" << endl;
+  fout << "xlabel('round');" << endl;
+
+
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_amounts./round_count);" << endl;
+  fout << "title('btrials: bankroll up amount ave');" << endl;
+  fout << "xlabel('round');" << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_down_amounts./round_count);" << endl;
+  fout << "title('btrials: bankroll down amount ave');" << endl;
+  fout << "xlabel('round');" << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_amounts./bankroll_down_amounts);" << endl;
+  fout << "title('btrials: bankroll up/down amount ratios');" << endl;
+  fout << "xlabel('round');" << endl;
+
+
+  fout << endl;
+
+  fout << "bankroll_down_amounts = [";
+  for( round=0; round<num_rounds; round++)
+  {
+    fout << " " << bankroll_down_amounts[round];
+  }
+  fout << "];" << endl;
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_down_amounts);" << endl;
+  fout << "title('btrials: bankroll down amounts');" << endl;
+  fout << "xlabel('round');" << endl;
+
+  fout << endl;
+
   fout << "bankroll_down_count = [";
   for( round=0; round<num_rounds; round++)
   {
@@ -257,17 +304,26 @@ int main( int argc, char** argv)
   fout << "ylabel('bankroll\\_up\\_count./bankroll\\_down\\_count');" << endl;
 
 
-  fout << "win_ratio = win_count./round_count;" << endl;
+  fout << "win_count_ratio = win_count./round_count;" << endl;
   fout << "up_ratio = bankroll_up_count./round_count;" << endl;
 
   fout << endl;
 
   fout << "figure;" << endl;
-  fout << "plot(up_ratio.*win_ratio);" << endl;
-  fout << "title('btrials: up ratio times win ratio');" << endl;
+  fout << "plot(up_ratio.*win_count_ratio);" << endl;
+  fout << "title('btrials: up ratio times win count ratio');" << endl;
   fout << "xlabel('round');" << endl;
   fout << "ylabel('up\\_ratio.*win\\_ratio');" << endl;
 
+  fout << "bankroll_up_ave = bankroll_up_amounts./bankroll_up_count" << endl;
+
+  fout << endl;
+
+  fout << "figure;" << endl;
+  fout << "plot(bankroll_up_ave);" << endl;
+  fout << "title('btrials: bankroll up ave');" << endl;
+  fout << "xlabel('round');" << endl;
+  fout << "ylabel('bankroll\\_up\\_ave');" << endl;
 
   fout << endl;
 

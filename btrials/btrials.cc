@@ -29,10 +29,11 @@ int main()
   init( btrial);
 
   float ave_wins;
+  float win_ratio;
   float ave_winnings;
   float ave_positive;
 
-  int n = 1e4;
+  int n = 1e2;
 
   int i;
 
@@ -62,12 +63,15 @@ int main()
     ave_wins /= n;
     ave_winnings /= n;
     ave_positive /= n;
+    win_ratio = (double)ave_wins / btrial.num_trials;
 
     cout << setw(4) << btrial.num_trials
          << " "
-         << fixed << setprecision(8) << (double)ave_wins / btrial.num_trials
+         << fixed << setprecision(8) << win_ratio
          << " "
          << setw(5) << ave_winnings
+         << " "
+         << setw(5) << ave_winnings * win_ratio
          << " "
          << ave_positive
          << ";"
@@ -85,7 +89,7 @@ void init( BTrial& btrial)
 {
   btrial.p = 0.469;
   btrial.pbing = 0.0494;
-  btrial.max_trials = 1e3;
+  btrial.max_trials = 1e4;
   btrial.base_wager = 1;
   btrial.max_wager = 128;
 }
@@ -105,18 +109,18 @@ void play( BTrial& btrial)
       btrial.winnings += wager;
       if( (double)rand()/RAND_MAX < btrial.pbing)
       {
-        btrial.winnings+=(wager/2);
+        btrial.winnings+=(wager/2.0);
       }
       wager = btrial.base_wager;
     }
     else
     {
       btrial.winnings -= wager;
-      wager*=2;
+      wager*=2.0;
       if( wager > btrial.max_wager)
       {
-        //wager = btrial.base_wager;
-        return;
+        wager = btrial.base_wager;
+        //return;
       }
     }
   }

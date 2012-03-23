@@ -7,6 +7,7 @@
 #include <vector>
 #include <fstream>
 #include <ctime>
+#include <climits>
 using namespace std;
 
 namespace dthorne0_blackjack {
@@ -58,9 +59,13 @@ public:
 
     m_martingale_factor = martingale_factor;
     m_is_using_the_martingale_betting_strategy = false;
+    m_is_betting_the_count = false;
 
     m_lost_last_round = false;
     m_broke_even_last_round = false;
+
+    m_max_wager = 0.0;
+    m_max_bankroll = 0.0;
   }
 
   void prepares_for_new_game();
@@ -70,8 +75,12 @@ public:
   // wager after every win.
   void should_use_the_martingale_betting_strategy()
   { m_is_using_the_martingale_betting_strategy = true; }
+  void should_bet_the_count()
+  { m_is_betting_the_count = true; }
   bool is_using_the_martingale_betting_strategy() const
   { return m_is_using_the_martingale_betting_strategy;}
+  bool is_betting_the_count() const
+  { return m_is_betting_the_count;}
   float martingale_factor() const { return m_martingale_factor;}
 
   void places_bet();
@@ -143,6 +152,9 @@ public:
 
   float winnings_this_round() const { return m_winnings_this_round;}
 
+  float max_wager() const { return m_max_wager;}
+  float max_bankroll() const { return m_max_bankroll;}
+
 private:
 
   const Rules& m_rules;
@@ -170,11 +182,15 @@ private:
   float m_bankroll;
 
   bool m_is_using_the_martingale_betting_strategy;
+  bool m_is_betting_the_count;
   float m_martingale_factor;
 
   bool m_lost_last_round;
   bool m_broke_even_last_round;
   float m_winnings_this_round;
+
+  float m_max_wager;
+  float m_max_bankroll;
 
 };
 
@@ -477,7 +493,7 @@ int main( const int argc, const char** argv)
 
   Scribe scribe( rules,shoe,player,dealer
                , num_rounds_to_play
-               , /*max_rounds_per_game*/ 3e2);
+               , /*max_rounds_per_game*/ 1e3); //3e2);
 
   Message message( rules,shoe,player,dealer,scribe, /*show*/ false);
 
@@ -822,12 +838,24 @@ void Player::places_bet()
       if( !broke_even_last_round())
       {
         m_wager *= martingale_factor();
+        if( m_wager > m_max_wager)
+        {
+          m_max_wager = m_wager;
+        }
+      }
+      else
+      {
+        // This means last round was a push and the round before that
+        // was a loss.
       }
     }
     else
     {
       m_wager = base_wager();
     }
+  }
+  else if( is_betting_the_count())
+  {
   }
   else
   {
@@ -871,6 +899,11 @@ void Player::won()
     m_bankroll += wager();
     m_winnings_this_round +=  wager();
   }
+
+  if( m_bankroll > m_max_bankroll)
+  {
+    m_max_bankroll = m_bankroll;
+  }
 }
 
 void Player::lost()
@@ -888,6 +921,11 @@ void Player::got_blackjack()
 {
   m_bankroll += 1.5*wager();
   m_winnings_this_round +=  1.5*wager();
+
+  if( m_bankroll > m_max_bankroll)
+  {
+    m_max_bankroll = m_bankroll;
+  }
 }
 
 bool Player::can_double_down() const
@@ -2013,6 +2051,7 @@ bool Scribe::sees_that_player_has_blackjack() const
 bool Scribe::player_is_bankrupt() const
 {
   return m_player.bankroll() <= 0.0;
+  // return m_player.bankroll() < m_player.wager();
 }
 
 void Scribe::make_more_space_if_necessary()
@@ -2436,6 +2475,14 @@ void Scribe::summarizes_results_to_stdout()
   }
   cout << "  ratio of wins due to blackjack      : "
        << (double)m_num_blackjacks_total / m_num_wins_total
+       << endl;
+
+  cout << endl;
+  cout << "  max wager                            $"
+       << m_player.max_wager()
+       << endl;
+  cout << "  max bankroll                         $"
+       << m_player.max_bankroll()
        << endl;
 }
 

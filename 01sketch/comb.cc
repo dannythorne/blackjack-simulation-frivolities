@@ -8,9 +8,9 @@ using namespace std;
 
 int main( int argc, char** argv)
 {
-  const bool verbose = true;
+  const bool verbose = false;
   const bool check_psum = false;
-  const bool do_martingale = false;
+  const bool do_martingale = true;
 
   int max_rounds = 0;
 
