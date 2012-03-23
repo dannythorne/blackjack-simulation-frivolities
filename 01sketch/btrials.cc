@@ -28,14 +28,14 @@ int main( int argc, char** argv)
 
   float p = 0.469214;
   float pbing = 0.105522; // simulate occasional blackjack payout
-  int num_trials = 1e8;
+  int num_trials = 1e9;
 
-  int max_rounds = 1e4; //4e3;
+  int max_rounds = 3e2; //4e3;
 
-  float initial_bankroll = 200;
+  float initial_bankroll = 20;
   float base_wager = 1;
 
-  bool do_martingale = false;
+  bool do_martingale = true;
 
   float bankroll = initial_bankroll;
   float wager = base_wager;

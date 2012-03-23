@@ -44,7 +44,15 @@ figure;
     hnd=plot( [ x x+2*dx], y*[ 1 1]);
     w = (i-1)/(num_figs-1);
     set(hnd,'color', (w)*[ 1 0 0] + (1-w)*[ 0 0 1]);
-    hnd=text( x+3*dx, y, sprintf('Figure %d',figs(i)));
+    temp = get(0,'currentfigure');
+    figure(figs(i));
+    title_string = get(get(gca,'title'),'string');
+    figure(temp);
+    if( length(title_string) > 0)
+      hnd=text( x+3*dx, y, sprintf('%s',title_string));
+    else
+      hnd=text( x+3*dx, y, sprintf('Figure %d',figs(i)));
+    end
     set(hnd,'color', 0.3*[1 1 1]);
     y = y - dy;
   end

@@ -8,7 +8,7 @@ using namespace std;
 
 int main( int argc, char** argv)
 {
-  const bool verbose = false;
+  const bool verbose = true;
   const bool check_psum = false;
   const bool do_martingale = false;
 

@@ -44,7 +44,7 @@ class Player
 {
 public:
   Player( const Rules& rules
-        , const float initial_bankroll=200.0
+        , const float initial_bankroll=20.0
         , const float base_wager=1.0
         , const float martingale_factor=2.0
         )
@@ -477,7 +477,7 @@ int main( const int argc, const char** argv)
 
   Scribe scribe( rules,shoe,player,dealer
                , num_rounds_to_play
-               , /*max_rounds_per_game*/ 2e3);
+               , /*max_rounds_per_game*/ 3e2);
 
   Message message( rules,shoe,player,dealer,scribe, /*show*/ false);
 
@@ -693,7 +693,7 @@ bool Rules::allow_doubling_down_after_splitting() const
 
 bool Rules::allow_negative_bankroll() const
 {
-  return true;
+  return false;
 }
 
 bool Rules::say_it_is_time_to_reset_the( const Shoe& shoe) const
@@ -2087,7 +2087,7 @@ void Scribe::make_more_space_if_necessary()
     m_bankroll_down_counts.push_back(0);
   }
 
-  if( m_win_counts.size() < num_hands())
+  if( m_win_counts.size() < num_hands()+m_player.num_hands())
   {
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM:"
          << " m_win_counts.size() "
@@ -2101,7 +2101,7 @@ void Scribe::make_more_space_if_necessary()
          << endl;
     exit(1);
   }
-  if( m_hand_counts.size() < num_hands())
+  if( m_hand_counts.size() < num_hands()+m_player.num_hands())
   {
     cerr << __FILE__ << " " << __LINE__ << " -- " << "BOOM!" << endl;
     exit(1);
