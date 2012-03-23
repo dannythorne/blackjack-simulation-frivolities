@@ -1,8 +1,8 @@
 function [ratio_losing_streaks] = ...
   p(nmax,max_length_of_losing_streak,initial_winnings,initial_wager)
 
-track_losing_streaks = 0;
-track_even_odds_for_comparison = 0;
+track_losing_streaks = 1;
+track_even_odds_for_comparison = 1;
 track_winnings = (initial_wager>0);
 
 if ~track_losing_streaks

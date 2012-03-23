@@ -8,8 +8,9 @@ using namespace std;
 
 int main( int argc, char** argv)
 {
-  bool verbose = false;
-  bool check_psum = false;
+  const bool verbose = false;
+  const bool check_psum = false;
+  const bool do_martingale = false;
 
   int max_rounds = 0;
 
@@ -34,8 +35,6 @@ int main( int argc, char** argv)
 
   const float initial_bankroll = 20;
   const float base_wager = 1;
-
-  const bool do_martingale = true;
 
   float bankroll;
   float wager;
@@ -247,7 +246,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(round_count);" << endl;
-  fout << "title('round count');" << endl;
+  fout << "title('comb: round count');" << endl;
   fout << "xlabel('round');" << endl;
 
   fout << endl;
@@ -260,7 +259,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(win_count);" << endl;
-  fout << "title('win count');" << endl;
+  fout << "title('comb: win count');" << endl;
   fout << "xlabel('round');" << endl;
 
   fout << endl;
@@ -273,7 +272,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(bankroll_up_count);" << endl;
-  fout << "title('bankroll up count');" << endl;
+  fout << "title('comb: bankroll up count');" << endl;
   fout << "xlabel('round');" << endl;
 
   fout << endl;
@@ -286,7 +285,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(bankroll_down_count);" << endl;
-  fout << "title('bankroll down count');" << endl;
+  fout << "title('comb: bankroll down count');" << endl;
   fout << "xlabel('round');" << endl;
 
   fout << endl;
@@ -299,7 +298,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(winning_game_count);" << endl;
-  fout << "title('winning game count');" << endl;
+  fout << "title('comb: winning game count');" << endl;
   fout << "xlabel('length of game (num rounds)');" << endl;
 
   fout << endl;
@@ -312,7 +311,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(winning_game_prob);" << endl;
-  fout << "title('winning game prob');" << endl;
+  fout << "title('comb: winning game prob');" << endl;
   fout << "xlabel('num rounds');" << endl;
 
   fout << endl;
@@ -325,7 +324,7 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(cumulative_amount_won);" << endl;
-  fout << "title('cumulative amount won');" << endl;
+  fout << "title('comb: cumulative amount won');" << endl;
   fout << "xlabel('num rounds');" << endl;
 
   fout << endl;
@@ -338,14 +337,14 @@ int main( int argc, char** argv)
   fout << "];" << endl;
   fout << "figure;" << endl;
   fout << "plot(num_games);" << endl;
-  fout << "title('num games');" << endl;
+  fout << "title('comb: num games');" << endl;
   fout << "xlabel('num rounds');" << endl;
 
   fout << endl;
 
   fout << "figure;" << endl;
   fout << "plot(winning_game_count./num_games);" << endl;
-  fout << "title('winning game ratios');" << endl;
+  fout << "title('comb: winning game ratios');" << endl;
   fout << "xlabel('game length (num rounds)');" << endl;
   fout << "ylabel('winning\\_game\\_count./num\\_games');" << endl;
 
@@ -353,7 +352,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(winning_game_prob./num_games);" << endl;
-  fout << "title('winning game prob ratios');" << endl;
+  fout << "title('comb: winning game prob ratios');" << endl;
   fout << "xlabel('game length (num rounds)');" << endl;
   fout << "ylabel('winning\\_game\\_prob./num\\_games');" << endl;
 
@@ -365,7 +364,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(average_amount_won);" << endl;
-  fout << "title('average\\_amount\\_won');" << endl;
+  fout << "title('comb: average\\_amount\\_won');" << endl;
   fout << "xlabel('num rounds');" << endl;
   fout << "ylabel('average\\_amount\\_won');" << endl;
 
@@ -373,7 +372,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(average_amount_won.*winning_game_prob);" << endl;
-  fout << "title('average\\_amount\\_won.*winning\\_game\\_prob');" << endl;
+  fout << "title('comb: average\\_amount\\_won.*winning\\_game\\_prob');" << endl;
   fout << "xlabel('num rounds');" << endl;
   fout << "ylabel('average\\_amount\\_won.*winning\\_game\\_prob');" << endl;
 
@@ -381,7 +380,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(bankroll_down_count./round_count);" << endl;
-  fout << "title('bankroll down ratios');" << endl;
+  fout << "title('comb: bankroll down ratios');" << endl;
   fout << "xlabel('round');" << endl;
   fout << "ylabel('bankroll\\_down\\_count./round\\_count');" << endl;
 
@@ -389,7 +388,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(bankroll_up_count./round_count);" << endl;
-  fout << "title('bankroll up ratios');" << endl;
+  fout << "title('comb: bankroll up ratios');" << endl;
   fout << "xlabel('round');" << endl;
   fout << "ylabel('bankroll\\_up\\_count./round\\_count');" << endl;
 
@@ -397,7 +396,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(bankroll_up_count./bankroll_down_count);" << endl;
-  fout << "title('bankroll up/down ratios');" << endl;
+  fout << "title('comb: bankroll up/down ratios');" << endl;
   fout << "xlabel('round');" << endl;
   fout << "ylabel('bankroll\\_up\\_count./bankroll\\_down\\_count');" << endl;
 
@@ -409,7 +408,7 @@ int main( int argc, char** argv)
 
   fout << "figure;" << endl;
   fout << "plot(up_ratio.*win_ratio);" << endl;
-  fout << "title('up ratio times win ratio');" << endl;
+  fout << "title('comb: up ratio times win ratio');" << endl;
   fout << "xlabel('round');" << endl;
   fout << "ylabel('up\\_ratio.*win\\_ratio');" << endl;
 

@@ -1,0 +1,333 @@
+
+<html>
+<head>
+<title>01sketch</title>
+<style>
+body
+{
+  padding-top:1024px;
+  padding-bottom:1024px;
+  color:#333333;
+}
+.slide
+{
+  font-family:sans-serif;
+  font-size:72pt;
+  color:#333333;
+  height:1024px;
+  width:100%;
+  text-align:center;
+  border:solid 0px #ff0000;
+}
+.caption
+{
+  font-family:times;
+  font-size:18pt;
+  color:#333333;
+  text-align:center;
+  position:relative;
+  top:-0.25in;
+  border:solid 0px #ff00ff;
+}
+pre
+{
+  font-size:18pt;
+  font-weight:bold;
+  padding-bottom:512px;
+}
+.mark-bright
+{
+  color:#ff0000;
+  font-weight:bold;
+}
+.mark-dark
+{
+  color:#990000;
+  font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<div class="slide">
+Blackjack
+<br/>
+<br/>
+<div class="caption">
+<a href="./png/example_game.txt">example game</a>
+</div>
+</div>
+
+<div class="slide">
+Can you win?
+</div>
+
+<div class="slide">
+<img src="./png/01_blackjack_first_game_bankroll.png"/>
+<div class="caption">
+initial bankroll $200; base wager $1; no splitting; no doubling down;
+</div>
+</div>
+
+<div class="slide">
+<img src="./png/02_blackjack_first_game_bankroll.png"/>
+<div class="caption">
+initial bankroll $200; base wager $5; no splitting; no doubling down;
+</div>
+</div>
+
+<div class="slide">
+<img src="./png/03_blackjack_first_game_bankroll.png"/>
+<div class="caption">
+both
+</div>
+</div>
+
+<pre>
+$ ./a.exe 10000000
+
+  total games played :         1000
+  total rounds played:     10000000
+  total hands played :     10000000 (averaging 10000 hands per game)
+
+  total hands won    :      4284901
+  total hands lost   :      4851076
+  total hands pushed :       864023
+              ------------------------
+                 sum :     10000000
+
+          blackjacks :       452784
+
+  win ratio          : <span class="mark-bright">0.42849</span>
+  loss ratio         : 0.485108
+  push ratio         : 0.0864023
+  blackjack ratio    : 0.0452784
+
+  win ratio disregarding pushed hands : <span class="mark-dark">0.469014</span>
+  loss ratio disregarding pushed hands: 0.530986
+  blackjack ratio disregarding pushed : 0.0495605
+  ratio of wins due to blackjack      : 0.10567
+</pre>
+
+<div class="slide">
+<img src="./png/04_blackjack_first_game_bankroll_splitting_and_doubling.png"/>
+<div class="caption">
+including splitting and doubling down
+</div>
+</div>
+
+<div class="slide">
+<img src="./png/05_blackjack_first_game_bankroll_splitting_and_doubling.png"/>
+<div class="caption">
+including splitting and doubling down (longer games)
+</div>
+</div>
+
+<div class="slide">
+No.
+<br/>
+<br/>
+<div class="caption">
+You "almost surely" cannot win in the long run.
+<br/>
+<br/>
+Expected winnings per hand is something like -$0.005 per dollar (depending on rule variations).
+</div>
+</div>
+
+<div class="slide">
+Maybe?
+<br/>
+<br/>
+<div class="caption">
+What about in the short term?
+<br/>
+<br/>
+If you play a "small" number of rounds, you can certainly get lucky.
+<br/>
+<br/>
+Is there a clever way of betting that increases odds of winning in the short term?
+</div>
+</div>
+
+<div class="slide">
+Martingale
+<br/>
+<br/>
+<div class="caption">
+Double your wager after each loss.
+<br/>
+(Reset to base wager after each win.)
+<br/>
+<br/>
+Geometric sums!
+<br/>
+Payoff from nth wager: 2<sup>n+1</sup>
+<br/>
+Sum of wagers: 2<sup>n+1</sup> &minus; 1
+<br/>
+<br/>
+So you always come out ahead $1 eventually.
+</div>
+</div>
+
+<div class="slide">
+<img src="./png/06_martingale.png"/>
+<div class="caption">
+Martingale (initial bankroll $200; base wager $1; no splitting; no doubling down;)
+</div>
+</div>
+
+<div class="slide">
+Woo Hoo!
+<br/>
+<br/>
+<div class="caption">
+Almost $1500 after 2000 rounds!
+<br/>
+<br/>
+<br/>
+<br/>
+Side note: 2000 rounds is approx. 10 to 40 hours (depending on how many players
+are at the table and the level of experience of the players and the dealer).
+<br/>
+<br/>
+Another side note: at one point you were wagering $2048 to overcome a $4095 deficit (from a 12 hand losing streak).
+</div>
+</div>
+
+<div class="slide">
+Losing streaks
+<br/>
+<br/>
+<div class="caption">
+What are the chances of a long losing streak?
+<br/>
+<br/>
+</div>
+</div>
+
+<div class="slide">
+<img src="./png/07_losing_streak_probabilities_nmax_18_max_losing_streak_to_track_6_initial_amount_200_base_wager_1.png"/>
+</div>
+
+<div class="slide">
+So...
+<br/>
+<br/>
+<div class="caption">
+Martingale is likely to bankrupt you after only a moderate number of hands.
+<br/>
+<br/>
+(Note that finding good tables with low minimum bets is hard. The geometric sum
+above will probably need to be multiplied by a factor of $5, $10 or $25.)
+<br/>
+<br/>
+</div>
+</div>
+
+<div class="slide">
+Is there another way to look at this situation?
+<br/>
+<br/>
+<div class="caption">
+I know I am likely to lose all my money.
+<br/>
+<br/>
+Suppose I happen, by chance, not to lose my money too quickly...
+<br/>
+<br/>
+Is there an optimal number of hands I should play?
+<br/>
+<br/>
+(In other words, if chance does not end my play by taking all my money, when
+should I <i>choose</i> to stop playing.)
+<br/>
+<br/>
+</div>
+</div>
+
+
+<pre>
+Simulating 2 games of 1 rounds.
+       0 -- pgame = 0.530786  ;  bankroll  $199
+       1 -- pgame = 0.469214  ;  bankroll  $201 &lt;-- winning game (up $1)
+  Number of winning games: 1 (ratio 0.5)
+
+Simulating 4 games of 2 rounds.
+     0 0 -- pgame = 0.281734  ;  bankroll  $197
+     0 1 -- pgame = 0.249052  ;  bankroll  $201 &lt;-- winning game (up $1)
+     1 0 -- pgame = 0.249052  ;  bankroll  $200
+     1 1 -- pgame = 0.220162  ;  bankroll  $202 &lt;-- winning game (up $2)
+  Number of winning games: 2 (ratio 0.5)
+
+Simulating 8 games of 3 rounds.
+   0 0 0 -- pgame = 0.14954   ;  bankroll  $193
+   0 0 1 -- pgame = 0.132193  ;  bankroll  $201 &lt;-- winning game (up $1)
+   0 1 0 -- pgame = 0.132193  ;  bankroll  $200
+   0 1 1 -- pgame = 0.116859  ;  bankroll  $202 &lt;-- winning game (up $2)
+   1 0 0 -- pgame = 0.132193  ;  bankroll  $198
+   1 0 1 -- pgame = 0.116859  ;  bankroll  $202 &lt;-- winning game (up $2)
+   1 1 0 -- pgame = 0.116859  ;  bankroll  $201 &lt;-- winning game (up $1)
+   1 1 1 -- pgame = 0.103303  ;  bankroll  $203 &lt;-- winning game (up $3)
+  Number of winning games: 5 (ratio 0.625)
+
+Simulating 16 games of 4 rounds.
+ 0 0 0 0 -- pgame = 0.0793739 ;  bankroll  $185
+ 0 0 0 1 -- pgame = 0.0701664 ;  bankroll  $201 &lt;-- winning game (up $1)
+ 0 0 1 0 -- pgame = 0.0701664 ;  bankroll  $200
+ 0 0 1 1 -- pgame = 0.062027  ;  bankroll  $202 &lt;-- winning game (up $2)
+ 0 1 0 0 -- pgame = 0.0701664 ;  bankroll  $198
+ 0 1 0 1 -- pgame = 0.062027  ;  bankroll  $202 &lt;-- winning game (up $2)
+ 0 1 1 0 -- pgame = 0.062027  ;  bankroll  $201 &lt;-- winning game (up $1)
+ 0 1 1 1 -- pgame = 0.0548318 ;  bankroll  $203 &lt;-- winning game (up $3)
+ 1 0 0 0 -- pgame = 0.0701664 ;  bankroll  $194
+ 1 0 0 1 -- pgame = 0.062027  ;  bankroll  $202 &lt;-- winning game (up $2)
+ 1 0 1 0 -- pgame = 0.062027  ;  bankroll  $201 &lt;-- winning game (up $1)
+ 1 0 1 1 -- pgame = 0.0548318 ;  bankroll  $203 &lt;-- winning game (up $3)
+ 1 1 0 0 -- pgame = 0.062027  ;  bankroll  $199
+ 1 1 0 1 -- pgame = 0.0548318 ;  bankroll  $203 &lt;-- winning game (up $3)
+ 1 1 1 0 -- pgame = 0.0548318 ;  bankroll  $202 &lt;-- winning game (up $2)
+ 1 1 1 1 -- pgame = 0.0484712 ;  bankroll  $204 &lt;-- winning game (up $4)
+  Number of winning games: 11 (ratio 0.6875)
+</pre>
+
+
+<div class="slide">
+<img src="./png/08_comb_win_ratios.png"/>
+</div>
+
+
+<div class="slide">
+Intriguing
+<br/>
+<br/>
+<div class="caption">
+I was very intrigued when I saw that curve.
+<br/>
+<br/>
+I started playing around and found that it is even more interesting when the initial bankroll is lower...
+</div>
+</div>
+
+
+
+<div class="slide">
+<img src="./png/09_comb_win_ratios.png"/>
+</div>
+
+<div class="slide">
+<div class="caption">
+This is also interesting:
+</div>
+<img src="./png/10_comb_win_ratios_flat_betting.png"/>
+<div class="caption">
+<br/>
+With flat betting (i.e., non-Martingale), it is better to play an odd number of hands.
+</div>
+</div>
+
+
+
+</body>
+</html>
